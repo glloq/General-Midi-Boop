@@ -11,6 +11,9 @@ import {
   PRESET_NAMES,
   dedupe,
   mergeRepeats,
+  isFlatWithin,
+  longestContiguousRun,
+  ENGINE_PITCH_BIN_SEMITONES,
   fixOverlaps,
   normalizeVelocities,
   quantize,
@@ -350,5 +353,163 @@ describe('tempoAt', () => {
     expect(tempoAt(map, 0)).toBe(90);
     expect(tempoAt(map, 9.9)).toBe(90);
     expect(tempoAt(map, 10)).toBe(140);
+  });
+});
+
+// Measured, not assumed: on synthetic tones that are perfectly in tune — pure
+// sine and 4- and 8-harmonic — the engine reports +1 bin (+33 cents) on every
+// note, and Basic Pitch's own MIDI export shows the same 1365-tick bends. Left
+// in, every instrument that honours pitch bend plays the transcription a third
+// of a semitone sharp.
+describe('pitch deadband at the engine resolution', () => {
+  const bin = ENGINE_PITCH_BIN_SEMITONES;
+  const curve = (...values) => values.map((value, i) => ({ t: i * 0.05, value }));
+
+  test('one bin is what the engine can resolve, and no more', () => {
+    expect(bin).toBeCloseTo(1 / 3, 10);
+  });
+
+  test('a curve that never leaves the deadband says nothing', () => {
+    expect(isFlatWithin(curve(bin, bin, 0, bin), bin)).toBe(true);
+    expect(isFlatWithin(curve(0, 0, 0), bin)).toBe(true);
+    expect(isFlatWithin(curve(-bin, bin), bin)).toBe(true);
+  });
+
+  test('a real excursion is not flat, however briefly it happens', () => {
+    expect(isFlatWithin(curve(0, 0, 0.9, 0), bin)).toBe(false);
+    expect(isFlatWithin(curve(0, -1.2), bin)).toBe(false);
+  });
+
+  test('an empty curve is not "flat" — there is nothing to drop', () => {
+    expect(isFlatWithin([], bin)).toBe(false);
+    expect(isFlatWithin(null, bin)).toBe(false);
+  });
+
+  test('a deadband of zero never removes anything', () => {
+    expect(isFlatWithin(curve(0, 0), 0)).toBe(false);
+  });
+
+  test('balanced removes the engine detune; raw keeps every bit of it', () => {
+    const notes = [
+      {
+        start: 0,
+        end: 1,
+        pitch: 60,
+        expression: { pitchCurve: curve(bin, bin, bin), amplitudeCurve: [] }
+      }
+    ];
+    const balanced = processor.process(resultWith(notes), { preset: 'balanced' });
+    expect(balanced.result.tracks[0].notes[0].expression).toBeNull();
+    expect(balanced.stats.flatPitchCurvesDropped).toBe(1);
+
+    const raw = processor.process(resultWith(notes), { preset: 'raw' });
+    expect(raw.result.tracks[0].notes[0].expression.pitchCurve).toHaveLength(3);
+    expect(raw.stats.flatPitchCurvesDropped).toBe(0);
+  });
+
+  test('a vibrato keeps every point, the small ones included', () => {
+    // Punching holes where a vibrato crosses the centre would be worse than
+    // leaving it alone, so the rule is all-or-nothing per note.
+    const notes = [
+      {
+        start: 0,
+        end: 1,
+        pitch: 60,
+        expression: { pitchCurve: curve(0, 0.8, 0, -0.8, 0), amplitudeCurve: [] }
+      }
+    ];
+    const out = processor.process(resultWith(notes), { preset: 'balanced' });
+    const kept = out.result.tracks[0].notes[0].expression.pitchCurve;
+    expect(kept.length).toBeGreaterThan(1);
+    expect(out.stats.flatPitchCurvesDropped).toBe(0);
+  });
+
+  test('every preset declares what it does with the deadband', () => {
+    expect(PRESETS.raw.pitchDeadbandSemitones).toBe(0);
+    expect(PRESETS.balanced.pitchDeadbandSemitones).toBe(bin);
+    expect(PRESETS.clean.pitchDeadbandSemitones).toBe(bin);
+  });
+
+  test('the removal is reported, not silent', () => {
+    const notes = [
+      {
+        start: 0,
+        end: 1,
+        pitch: 60,
+        expression: { pitchCurve: curve(bin, bin), amplitudeCurve: [] }
+      }
+    ];
+    const out = processor.process(resultWith(notes), { preset: 'balanced' });
+    expect(out.result.warnings.join(' ')).toMatch(/below the engine's resolution/);
+  });
+});
+
+// The engine does not always re-onset a repeated note: measured on six 300 ms
+// G4s, it emits one unbroken stream of same-pitch fragments until the silence
+// between them reaches about 180 ms. Each fragment becomes a Note On — and a
+// Note On is a hammer or a solenoid on the other end of GMB.
+describe('contiguous same-pitch fragments are reported', () => {
+  test('an ordinary melody has no run to speak of', () => {
+    expect(
+      longestContiguousRun([
+        { pitch: 60, start: 0, end: 0.4 },
+        { pitch: 62, start: 0.5, end: 0.9 },
+        { pitch: 64, start: 1.0, end: 1.4 }
+      ])
+    ).toBe(1);
+  });
+
+  test('a repeated note with a real gap is not a run', () => {
+    expect(
+      longestContiguousRun([
+        { pitch: 60, start: 0, end: 0.3 },
+        { pitch: 60, start: 0.5, end: 0.8 },
+        { pitch: 60, start: 1.0, end: 1.3 }
+      ])
+    ).toBe(1);
+  });
+
+  test('fragments that butt up against each other are', () => {
+    expect(
+      longestContiguousRun([
+        { pitch: 67, start: 0.0, end: 0.24 },
+        { pitch: 67, start: 0.24, end: 0.37 },
+        { pitch: 67, start: 0.37, end: 0.59 },
+        { pitch: 67, start: 0.59, end: 0.69 }
+      ])
+    ).toBe(4);
+  });
+
+  test('a run on one pitch is not broken by other notes between', () => {
+    expect(
+      longestContiguousRun([
+        { pitch: 67, start: 0.0, end: 0.2 },
+        { pitch: 72, start: 0.05, end: 0.15 },
+        { pitch: 67, start: 0.2, end: 0.4 },
+        { pitch: 67, start: 0.4, end: 0.6 }
+      ])
+    ).toBe(3);
+  });
+
+  test('the result says so, and says what to try', () => {
+    const notes = [
+      { start: 0.0, end: 0.2, pitch: 67 },
+      { start: 0.2, end: 0.4, pitch: 67 },
+      { start: 0.4, end: 0.6, pitch: 67 }
+    ];
+    const out = processor.process(resultWith(notes), { preset: 'balanced' });
+    const said = out.result.warnings.join(' ');
+    expect(said).toMatch(/same pitch with no gap/);
+    expect(said).toMatch(/Clean preset/);
+  });
+
+  test('it reports and does not touch the notes', () => {
+    const notes = [
+      { start: 0.0, end: 0.2, pitch: 67 },
+      { start: 0.2, end: 0.4, pitch: 67 },
+      { start: 0.4, end: 0.6, pitch: 67 }
+    ];
+    const out = processor.process(resultWith(notes), { preset: 'balanced' });
+    expect(out.result.tracks[0].notes).toHaveLength(3);
   });
 });

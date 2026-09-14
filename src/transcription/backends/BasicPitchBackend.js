@@ -125,7 +125,10 @@ export class BasicPitchBackend extends TranscriptionBackend {
         python: true,
         gpu: false,
         raspberryPiSuitable: true,
-        minimumRamMb: 1024
+        // Measured: the engine peaks around 725 MB of RSS on 30 s of audio.
+        // With Raspberry Pi OS and GMB itself, a 1 GB board cannot hold that
+        // — a Pi 3B+ is OOM-killed rather than slow.
+        minimumRamMb: 2048
       },
       // Basic Pitch's model expects 22.05 kHz mono; the preprocessor produces
       // exactly that, so the engine never resamples user audio itself.
@@ -310,16 +313,26 @@ export class BasicPitchBackend extends TranscriptionBackend {
     );
 
     if (result.code !== 0) {
-      // A Python MemoryError / OOM kill reads very differently to a user than
-      // "the engine failed", and it is the failure a Pi actually hits.
+      // Running out of memory reads very differently to a user than "the
+      // engine failed", and it is the failure a Pi actually hits: the engine
+      // peaks around 725 MB on 30 s of audio.
+      //
+      // Two shapes, and only one of them says anything. Python raising
+      // MemoryError writes a traceback; the kernel's OOM killer sends SIGKILL
+      // and the process writes NOTHING — which is the common case on a Pi,
+      // and which the message test alone would report as "exit code null".
+      // Our own cancellation and timeout also end in SIGKILL, but both reject
+      // before this point, so a signal here came from outside.
       const stderr = result.stderr || '';
-      const outOfMemory = /MemoryError|Killed|Cannot allocate memory|std::bad_alloc/i.test(stderr);
+      const outOfMemory =
+        result.signal === 'SIGKILL' ||
+        /MemoryError|Killed|Cannot allocate memory|std::bad_alloc/i.test(stderr);
       throw new TranscriptionError(
         outOfMemory ? TRANSCRIPTION_REASONS.OUT_OF_MEMORY : TRANSCRIPTION_REASONS.BACKEND_FAILED,
         outOfMemory
           ? 'The engine ran out of memory — try a shorter file or a faster quality setting'
           : `Basic Pitch failed: ${tail(stderr, 3) || `exit code ${result.code}`}`,
-        { exitCode: result.code },
+        { exitCode: result.code, signal: result.signal ?? null },
         { backendId: 'basic-pitch' }
       );
     }
