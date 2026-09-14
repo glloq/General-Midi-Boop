@@ -320,11 +320,30 @@ imports — not merely that a directory exists.
 
 What to expect:
 
-| | Pi 3B+ | Pi 4 (4 GB) | Pi 5 / desktop |
+| | Pi 3B+ (1 GB) | Pi 4 (4 GB) | Pi 5 / desktop |
 | --- | --- | --- | --- |
 | Install size | ~700 MB | ~700 MB | ~700 MB |
 | 1 min of audio | very slow, not recommended | ~1–3 min | < 1 min |
-| RAM while running | at the limit | comfortable | comfortable |
+| RAM while running | **does not fit** | comfortable | comfortable |
+
+**Measured**, on 30 s of audio: the engine's subprocess peaks at about
+**725 MB** of RSS. With Raspberry Pi OS and GMB itself, that does not fit in
+a 1 GB board — a Pi 3B+ is killed by the kernel, not merely slow, and the
+job then reports `OUT_OF_MEMORY`. Two gigabytes is the realistic floor, which
+is what the engine now declares.
+
+One more number worth knowing on a Pi: once the engine has finished, GMB
+post-processes and encodes the notes **synchronously**. On a ten-minute file
+(≈ 5 000 notes) that is roughly 110 ms on a desktop, so on the order of half
+a second on a Pi 4 — during which the MIDI scheduler does not run. If you are
+playing a piece while a transcription finishes, expect it to hitch once.
+
+Deliberately left that way: a worker thread was measured and costs *more*
+main-thread time than the work it would move (175 ms just to start one, or
+463 ms to post the result across), so the only option that would actually
+help is slicing the two transforms into async chunks — a real cost for a
+one-off hitch at the end of a job you started. See
+`docs/audit/AUDIT_TRANSCRIPTION_ALGO_2026-09-14.md` §6.
 
 TensorFlow is the heavy part of that install. The transcription runs at two
 threads (`OMP_NUM_THREADS=2`) so the MIDI side of GMB keeps its cores while a

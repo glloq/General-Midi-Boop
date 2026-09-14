@@ -58,6 +58,29 @@ const EPSILON_SECONDS = 0.001;
  */
 
 /** @type {Readonly<Object<string, PostProcessingOptions>>} */
+/**
+ * One pitch bin of the shipped engine, in semitones.
+ *
+ * Basic Pitch estimates pitch on a contour grid of three bins per semitone,
+ * so ±1/3 semitone is the smallest deviation it can express — it cannot tell
+ * "one bin sharp" from "in tune". Measured on synthetic tones that are
+ * perfectly in tune (pure sine and 4- and 8-harmonic tones, every note of a
+ * chromatic-ish scale), the engine reports **+1 bin on every note**; Basic
+ * Pitch's own MIDI export shows the same `1365`-tick bends, so this is the
+ * engine's behaviour and not a conversion error here.
+ *
+ * Left alone, that becomes a real defect for GMB specifically: every
+ * instrument that honours pitch bend plays the whole transcription a third
+ * of a semitone sharp.
+ */
+export const ENGINE_PITCH_BIN_SEMITONES = 1 / 3;
+
+/** Two notes this close together were never separated by the engine. */
+export const CONTIGUOUS_FRAGMENT_SECONDS = 0.01;
+
+/** A run this long is reported; shorter ones are ordinary re-articulation. */
+export const CONTIGUOUS_RUN_WARNING_THRESHOLD = 3;
+
 export const PRESETS = Object.freeze({
   raw: Object.freeze({
     minConfidence: null,
@@ -69,7 +92,9 @@ export const PRESETS = Object.freeze({
     velocityFloor: 1,
     velocityCeiling: 127,
     quantizeGrid: null,
-    curveTolerance: null
+    curveTolerance: null,
+    // `raw` promises the engine's output untouched, detune included.
+    pitchDeadbandSemitones: 0
   }),
   balanced: Object.freeze({
     minConfidence: null,
@@ -81,7 +106,8 @@ export const PRESETS = Object.freeze({
     velocityFloor: 1,
     velocityCeiling: 127,
     quantizeGrid: null,
-    curveTolerance: 0.02
+    curveTolerance: 0.02,
+    pitchDeadbandSemitones: ENGINE_PITCH_BIN_SEMITONES
   }),
   clean: Object.freeze({
     minConfidence: 0.4,
@@ -93,12 +119,32 @@ export const PRESETS = Object.freeze({
     velocityFloor: 40,
     velocityCeiling: 120,
     quantizeGrid: null,
-    curveTolerance: 0.05
+    curveTolerance: 0.05,
+    pitchDeadbandSemitones: ENGINE_PITCH_BIN_SEMITONES
   })
 });
 
 /** @type {ReadonlyArray<string>} */
 export const PRESET_NAMES = Object.freeze(Object.keys(PRESETS));
+
+/**
+ * Drop a pitch curve that never leaves the deadband.
+ *
+ * All-or-nothing on purpose. A curve with a real excursion keeps every one of
+ * its points, small ones included, because they are the shape of the
+ * excursion — punching holes in a vibrato where it crosses the centre would
+ * be worse than leaving it alone. Only a curve that says nothing but "within
+ * the engine's own resolution" is removed.
+ *
+ * @param {Array<{t: number, value: number}>} curve - Deviation in semitones.
+ * @param {number} deadband - Semitones; 0 disables.
+ * @returns {boolean} True when the curve is inside the deadband throughout.
+ */
+export function isFlatWithin(curve, deadband) {
+  if (!(deadband > 0) || !Array.isArray(curve) || curve.length === 0) return false;
+  const limit = deadband + 1e-6;
+  return curve.every((point) => Math.abs(point.value) <= limit);
+}
 
 /** Cleans a transcription result before it becomes MIDI. */
 export class MidiPostProcessor {
@@ -133,7 +179,9 @@ export class MidiPostProcessor {
       quantized: 0,
       tracksDropped: 0,
       curvePointsIn: 0,
-      curvePointsOut: 0
+      curvePointsOut: 0,
+      flatPitchCurvesDropped: 0,
+      longestContiguousRun: 1
     };
 
     const beatsPerSecond = tempoAt(result.tempoMap, 0) / 60;
@@ -179,6 +227,19 @@ export class MidiPostProcessor {
         normalizeVelocities(notes, options.velocityFloor, options.velocityCeiling);
       }
 
+      if (options.pitchDeadbandSemitones > 0) {
+        for (const note of notes) {
+          if (!note.expression?.pitchCurve?.length) continue;
+          if (!isFlatWithin(note.expression.pitchCurve, options.pitchDeadbandSemitones)) continue;
+          // Counted as incoming even though the simplifier below will never
+          // see them: they DID arrive, and "0 points in" would hide how much
+          // curve data the engine actually produced.
+          stats.curvePointsIn += note.expression.pitchCurve.length;
+          stats.flatPitchCurvesDropped++;
+          note.expression = { ...note.expression, pitchCurve: [] };
+        }
+      }
+
       if (options.curveTolerance !== null && options.curveTolerance > 0) {
         for (const note of notes) {
           if (!note.expression) continue;
@@ -207,6 +268,10 @@ export class MidiPostProcessor {
         continue;
       }
       stats.notesOut += notes.length;
+      stats.longestContiguousRun = Math.max(
+        stats.longestContiguousRun,
+        longestContiguousRun(notes)
+      );
       tracks.push({ ...track, notes });
     }
 
@@ -458,6 +523,41 @@ export function tempoAt(tempoMap, time) {
 }
 
 /**
+ * Longest run of same-pitch notes that each begin where the previous ended.
+ *
+ * The engine does not always re-onset a repeated note: measured on six G4s
+ * of 300 ms, it emits one unbroken stream of same-pitch fragments until the
+ * silence between them reaches about 180 ms. Those fragments become one Note
+ * On each — eleven strikes for six notes, or for a single sustained one.
+ *
+ * That matters more here than in a DAW: a Note On is a hammer, a solenoid or
+ * a bow change on the other end. Nothing can recover the true rhythm from
+ * what the engine reported, so this does not alter the notes; it counts them
+ * so the result screen can say what happened and point at the preset that
+ * reconstructs them.
+ *
+ * @param {Object[]} notes - One track, sorted by start.
+ * @param {number} [gap=CONTIGUOUS_FRAGMENT_SECONDS]
+ * @returns {number} Length of the longest run (1 when nothing is contiguous).
+ */
+export function longestContiguousRun(notes, gap = CONTIGUOUS_FRAGMENT_SECONDS) {
+  let longest = 1;
+  const runByPitch = new Map();
+  const endByPitch = new Map();
+  for (const note of notes) {
+    const previousEnd = endByPitch.get(note.pitch);
+    const run =
+      previousEnd !== undefined && Math.abs(note.start - previousEnd) <= gap
+        ? (runByPitch.get(note.pitch) || 1) + 1
+        : 1;
+    runByPitch.set(note.pitch, run);
+    endByPitch.set(note.pitch, note.end);
+    if (run > longest) longest = run;
+  }
+  return longest;
+}
+
+/**
  * Turn the statistics into the short, user-readable warnings the result
  * screen shows (§32).
  *
@@ -476,6 +576,18 @@ export function describeStats(stats) {
   if (stats.overlapsFixed > 0) warnings.push(`${stats.overlapsFixed} overlapping notes shortened`);
   if (stats.quantized > 0) warnings.push(`${stats.quantized} notes quantized`);
   if (stats.tracksDropped > 0) warnings.push(`${stats.tracksDropped} empty tracks removed`);
+  if (stats.flatPitchCurvesDropped > 0) {
+    warnings.push(
+      `${stats.flatPitchCurvesDropped} pitch bends below the engine's resolution removed`
+    );
+  }
+  if (stats.longestContiguousRun >= CONTIGUOUS_RUN_WARNING_THRESHOLD) {
+    warnings.push(
+      `up to ${stats.longestContiguousRun} notes in a row on the same pitch with no gap — ` +
+        'the engine may have split one sustained note, or run repeated notes together; ' +
+        'the Clean preset often recovers them'
+    );
+  }
   return warnings;
 }
 

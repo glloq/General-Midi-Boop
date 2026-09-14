@@ -595,3 +595,44 @@ describe('lastJsonLine', () => {
     expect(lastJsonLine('')).toBe('');
   });
 });
+
+// The engine peaks around 725 MB of RSS on 30 s of audio. On a small board
+// the kernel's OOM killer gets there first — and it sends SIGKILL to a
+// process that writes nothing at all, so a message-based test sees an empty
+// stderr and reports "exit code null" for the one failure a Pi actually hits.
+describe('running out of memory', () => {
+  async function transcribeWith(result) {
+    const { backend } = makeBackend([result]);
+    await installFakeVenv();
+    backend._selfCheck = { status: BACKEND_STATUS.AVAILABLE, version: '0.4.0' };
+    return backend.transcribe('/tmp/audio.wav', {}, { workDir: dataDir }).catch((e) => e);
+  }
+
+  test('a SIGKILL with nothing on stderr is reported as out of memory', async () => {
+    const error = await transcribeWith({ code: null, signal: 'SIGKILL', stdout: '', stderr: '' });
+    expect(error).toBeInstanceOf(TranscriptionError);
+    expect(error.reason).toBe('OUT_OF_MEMORY');
+    expect(error.message).toMatch(/ran out of memory/);
+    expect(error.details.signal).toBe('SIGKILL');
+  });
+
+  test("Python's own MemoryError is still recognised", async () => {
+    const error = await transcribeWith({
+      code: 1,
+      stderr: 'Traceback...\nMemoryError\n'
+    });
+    expect(error.reason).toBe('OUT_OF_MEMORY');
+  });
+
+  test('an ordinary failure is not mistaken for one', async () => {
+    const error = await transcribeWith({ code: 1, stderr: 'ValueError: bad input\n' });
+    expect(error.reason).toBe('BACKEND_FAILED');
+    expect(error.message).toMatch(/ValueError/);
+  });
+
+  test('the advisory RAM floor matches what the engine really needs', () => {
+    const { backend } = makeBackend();
+    // 725 MB engine + GMB + the OS does not fit in a 1 GB board.
+    expect(backend.getMetadata().runtime.minimumRamMb).toBeGreaterThanOrEqual(2048);
+  });
+});

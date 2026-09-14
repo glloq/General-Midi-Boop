@@ -5599,10 +5599,14 @@
                                         <span class="upload-drop-zone-icon">📥</span>
                                         <div class="upload-drop-zone-text">
                                             <span data-i18n="ui.dropFilesHere">Glissez-déposez ou</span>
+                                            <!-- `data-i18n` is swapped to the *Audio variant once the server
+                                                 reports it can convert (see applyTranscriptionAffordance):
+                                                 switching the KEY, not the text, keeps i18n the single owner
+                                                 so a locale change does not undo it. -->
                                             <strong id="dropZoneBrowseLink" data-i18n="ui.clickToBrowse">cliquez pour ajouter des fichiers MIDI</strong>
                                         </div>
                                     </div>
-                                    <span id="dropZoneDesc" class="sr-only">Formats acceptés : .mid, .midi (10 MB max) ; un fichier audio ouvre la conversion Audio → MIDI. Raccourci : Ctrl+O</span>
+                                    <span id="dropZoneDesc" class="sr-only" data-i18n="ui.dropZoneFormats">Acceptés : fichiers MIDI (.mid, .midi), 10 Mo maximum. Raccourci : Ctrl+O</span>
                                 </div>
                                 <span class="file-count-badge" id="fileCountBadge" aria-live="polite" style="display: none;"></span>
 
@@ -7556,6 +7560,22 @@
                         initKeyboardShortcuts(); // Initialiser les raccourcis clavier
                         initBatchActions(); // Initialiser les actions par lots
                         initAdvancedFilters(); // Initialiser les filtres avancés
+                    }
+
+                    // Audio → MIDI : demander si CE serveur sait convertir, pour
+                    // n'annoncer l'audio dans la zone de dépôt que si c'est vrai.
+                    // À chaque connexion — un redémarrage du serveur a pu voir un
+                    // moteur installé ou retiré entre-temps.
+                    refreshTranscriptionAffordance();
+                    if (connectedCount === 1) {
+                        // Et en direct : installer un moteur depuis les Réglages
+                        // change la réponse sans rechargement de page.
+                        api.on('transcription_backend_changed', () =>
+                            refreshTranscriptionAffordance()
+                        );
+                        api.on('transcription_install_complete', () =>
+                            refreshTranscriptionAffordance()
+                        );
                     }
 
                     // R20 / F-94 : reprendre le contrôle d'une lecture que le
@@ -12853,14 +12873,6 @@
             }
         }
 
-        // Le sélecteur propose aussi l'audio — sans quoi la conversion ne
-        // serait atteignable qu'au glisser-déposer, ce qui est pénible sur
-        // une tablette. La liste vient de la modale, jamais d'une copie.
-        if (window.TranscriptionModal) {
-            const picker = document.getElementById('fileInput');
-            picker.accept = `.mid,.midi,${window.TranscriptionModal.acceptAttribute()}`;
-        }
-
         document.getElementById('fileInput').addEventListener('change', function() {
             // Auto-upload quand des fichiers sont sélectionnés
             if (this.files.length > 0) {
@@ -12883,9 +12895,61 @@
                 dropZoneTextSpan.textContent = '';
                 dropZoneTextStrong.textContent = i18n.t('ui.releaseToUpload') || 'Relâchez pour uploader';
             } else {
+                // Read the key back off the element: it says MIDI-only or
+                // MIDI-and-audio depending on what this server can do, and
+                // dragging must not silently reset that promise.
+                const browseKey = dropZoneTextStrong.getAttribute('data-i18n') || 'ui.clickToBrowse';
                 dropZoneTextSpan.textContent = i18n.t('ui.dropFilesHere') || dropZoneOriginalText;
-                dropZoneTextStrong.textContent = i18n.t('ui.clickToBrowse') || dropZoneOriginalStrong;
+                dropZoneTextStrong.textContent = i18n.t(browseKey) || dropZoneOriginalStrong;
             }
+        }
+
+        // ---- Ne promettre l'audio que si ce serveur sait vraiment convertir ----
+        //
+        // La modale explique honnêtement ce qui manque quand on y arrive, mais
+        // l'étiquette de la zone de dépôt est une promesse faite AVANT d'essayer :
+        // sur une machine sans moteur (ou sans FFmpeg) elle ne doit parler que de
+        // MIDI. Idem pour le `accept` du sélecteur, qui ne doit pas proposer des
+        // formats que le serveur refusera.
+        let transcriptionAvailable = false;
+
+        function applyTranscriptionAffordance() {
+            const browse = document.getElementById('dropZoneBrowseLink');
+            const desc = document.getElementById('dropZoneDesc');
+            const picker = document.getElementById('fileInput');
+
+            const browseKey = transcriptionAvailable ? 'ui.clickToBrowseAudio' : 'ui.clickToBrowse';
+            const descKey = transcriptionAvailable ? 'ui.dropZoneFormatsAudio' : 'ui.dropZoneFormats';
+
+            // Swap the KEY, then the text: i18n stays the owner, so a locale
+            // change re-renders the right variant instead of reverting it.
+            if (browse) {
+                browse.setAttribute('data-i18n', browseKey);
+                browse.textContent = i18n.t(browseKey);
+            }
+            if (desc) {
+                desc.setAttribute('data-i18n', descKey);
+                desc.textContent = i18n.t(descKey);
+            }
+            if (picker) {
+                picker.accept = transcriptionAvailable && window.TranscriptionModal
+                    ? `.mid,.midi,${window.TranscriptionModal.acceptAttribute()}`
+                    : '.mid,.midi';
+            }
+        }
+
+        async function refreshTranscriptionAffordance() {
+            let ready = false;
+            try {
+                const capabilities = await api.getTranscriptionCapabilities();
+                ready = capabilities?.status === 'ready';
+            } catch (_) {
+                // No command, no engine, an older server: promise nothing.
+                ready = false;
+            }
+            if (ready === transcriptionAvailable) return;
+            transcriptionAvailable = ready;
+            applyTranscriptionAffordance();
         }
 
         dropZoneBrowseLink.addEventListener('click', (e) => {

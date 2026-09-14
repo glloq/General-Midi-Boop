@@ -470,10 +470,15 @@ describe('L09 · i18n — reference corpus', () => {
   // installation des moteurs comprise), traduites dans les 28 locales →
   // 2 868 après le retrait du bouton d'en-tête Audio → MIDI, remplacé par
   // le dépôt d'un fichier audio sur l'interface : `transcription.headerButton`
-  // et `settings.transcriptionButton.title` n'ont plus de point d'affichage.
-  it('measures 28 locales against a 2 868-key English reference', () => {
+  // et `settings.transcriptionButton.title` n'ont plus de point d'affichage →
+  // 2 871 avec les trois variantes conditionnelles de la zone de dépôt
+  // (`ui.clickToBrowseAudio`, `ui.dropZoneFormats`, `ui.dropZoneFormatsAudio`) :
+  // l'étiquette n'annonce l'audio que si le serveur sait vraiment convertir,
+  // et la description lecteur d'écran, jusque-là codée en dur en français,
+  // est enfin traduite.
+  it('measures 28 locales against a 2 871-key English reference', () => {
     expect(locales).toHaveLength(28);
-    expect(keys.length).toBe(2868);
+    expect(keys.length).toBe(2871);
   });
 });
 
