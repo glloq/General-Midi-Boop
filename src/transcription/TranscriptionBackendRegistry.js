@@ -453,7 +453,13 @@ export class TranscriptionBackendRegistry {
         if (timer.unref) timer.unref();
       });
       report = await Promise.race([
-        Promise.resolve().then(() => backend.checkAvailability()),
+        // `force: true` unconditionally: we only get here when this registry
+        // has already decided a real check is due (asked for, or its own TTL
+        // expired). Without it a backend that caches its own answer — as the
+        // shipped one does, because the check spawns Python — would return
+        // the same verdict forever, and Settings' Refresh would be a button
+        // that does nothing after a manual install or a broken venv.
+        Promise.resolve().then(() => backend.checkAvailability({ force: true })),
         timeout
       ]);
     } catch (error) {

@@ -482,7 +482,7 @@ describe('probe budget', () => {
     };
     registry.register(slow);
 
-    const [descriptor] = await registry.detectAvailable({ force: true, includeUnavailable: true });
+    const [descriptor] = await registry.detectAvailable({ force: true });
     expect(descriptor.status).toBe(BACKEND_STATUS.AVAILABLE);
   });
 
@@ -492,5 +492,64 @@ describe('probe budget', () => {
     const backend = new BasicPitchBackend({ config: { transcription: { dataDir: '/tmp/none' } } });
     expect(backend.probeTimeoutMs).toBeGreaterThan(8000);
     expect(probeTimeoutFor(backend)).toBe(backend.probeTimeoutMs);
+  });
+});
+
+// A backend may cache an expensive check — the shipped one does, because it
+// spawns Python and loads TensorFlow. If the registry does not tell it to
+// re-check, Settings' Refresh is a button that does nothing: an engine
+// installed by hand stays "Can be installed" until the server restarts, and
+// one whose environment broke stays "Ready".
+describe('a probe is a real check, not a cached one', () => {
+  /** A backend that answers from its own cache unless forced. */
+  function cachingBackend(id = 'cachy') {
+    const backend = new FakeBackend({ id, status: BACKEND_STATUS.INSTALLABLE });
+    backend.calls = [];
+    backend.nextStatus = BACKEND_STATUS.INSTALLABLE;
+    backend._cached = null;
+    backend.checkAvailability = async (options = {}) => {
+      backend.calls.push(options);
+      if (!options.force && backend._cached) return backend._cached;
+      backend._cached = { status: backend.nextStatus, detail: null };
+      return backend._cached;
+    };
+    return backend;
+  }
+
+  test('the backend is told to ignore its own cache', async () => {
+    const { registry } = makeRegistry();
+    const backend = cachingBackend();
+    registry.register(backend);
+
+    await registry.detectAvailable({ force: true });
+    expect(backend.calls).toEqual([{ force: true }]);
+  });
+
+  test('an engine installed by hand is seen on Refresh, without a restart', async () => {
+    const { registry } = makeRegistry();
+    const backend = cachingBackend('basic-pitch-like');
+    registry.register(backend);
+
+    // `detectAvailable` returns only what can run; `list()` is how you see
+    // an engine that is merely installable.
+    await registry.detectAvailable({ force: true });
+    expect(registry.list()[0].status).toBe(BACKEND_STATUS.INSTALLABLE);
+
+    // Someone creates the venv by hand, then presses Refresh.
+    backend.nextStatus = BACKEND_STATUS.AVAILABLE;
+    const [after] = await registry.refresh(backend.getMetadata().id);
+    expect(after.status).toBe(BACKEND_STATUS.AVAILABLE);
+  });
+
+  test('an environment that breaks after startup stops reading as ready', async () => {
+    const { registry } = makeRegistry();
+    const backend = cachingBackend('fragile');
+    backend.nextStatus = BACKEND_STATUS.AVAILABLE;
+    registry.register(backend);
+    await registry.detectAvailable({ force: true });
+
+    backend.nextStatus = BACKEND_STATUS.BROKEN;
+    const [after] = await registry.refresh('fragile');
+    expect(after.status).toBe(BACKEND_STATUS.BROKEN);
   });
 });

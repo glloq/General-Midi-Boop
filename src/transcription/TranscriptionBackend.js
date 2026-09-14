@@ -103,7 +103,19 @@ export class TranscriptionBackend {
    * @returns {Promise<AvailabilityReport>}
    * @abstract
    */
-  async checkAvailability() {
+  /**
+   * Can this engine run **right now** on this host?
+   *
+   * @param {Object} [_options]
+   * @param {boolean} [_options.force=false] - Re-check for real, ignoring any
+   *   answer the backend cached. The registry passes `true` whenever it runs
+   *   a probe, so a backend is free to cache an expensive check (spawning an
+   *   interpreter, loading a model) and still be re-checkable: honour this
+   *   flag or Settings' Refresh silently does nothing.
+   * @returns {Promise<{status: string, detail?: ?string, version?: ?string}>}
+   * @abstract
+   */
+  async checkAvailability(_options = {}) {
     throw new Error(`${this.constructor.name} must implement checkAvailability()`);
   }
 

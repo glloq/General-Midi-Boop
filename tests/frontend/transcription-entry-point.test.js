@@ -103,6 +103,117 @@ describe('incoming files are routed by one function', () => {
   });
 });
 
+// The modal explains what is missing once you get there. The drop zone's
+// label is a promise made BEFORE you try, so on a server with no engine — or
+// no FFmpeg — it must only mention MIDI.
+describe('the label follows what the server can actually do', () => {
+  /** A page just enough like index.html for the affordance code to run. */
+  function makePage() {
+    document.body.innerHTML = `
+      <input type="file" id="fileInput" accept=".mid,.midi">
+      <div class="upload-drop-zone">
+        <div class="upload-drop-zone-text">
+          <span data-i18n="ui.dropFilesHere">drop</span>
+          <strong id="dropZoneBrowseLink" data-i18n="ui.clickToBrowse">midi only</strong>
+        </div>
+        <span id="dropZoneDesc" data-i18n="ui.dropZoneFormats">formats</span>
+      </div>`;
+  }
+
+  /** The shipped functions, lifted out of the page and given a scope. */
+  function loadAffordance(capabilitiesResult) {
+    const source = INDEX.slice(
+      INDEX.indexOf('let transcriptionAvailable = false;'),
+      INDEX.indexOf('async function refreshTranscriptionAffordance') +
+        INDEX.slice(INDEX.indexOf('async function refreshTranscriptionAffordance')).indexOf(
+          '\n        }'
+        ) +
+        10
+    );
+    const api = { getTranscriptionCapabilities: async () => capabilitiesResult() };
+    return new Function(
+      'api',
+      'i18n',
+      'window',
+      'document',
+      `${source}
+       return { applyTranscriptionAffordance, refreshTranscriptionAffordance,
+                isAvailable: () => transcriptionAvailable };`
+    )(api, window.i18n, window, document);
+  }
+
+  beforeEach(() => {
+    makePage();
+    window.TranscriptionModal = { acceptAttribute: () => '.wav,.mp3' };
+  });
+
+  it('promises MIDI only until the server says it can convert', () => {
+    const a = loadAffordance(() => ({ status: 'ready' }));
+    a.applyTranscriptionAffordance();
+
+    expect(document.getElementById('dropZoneBrowseLink').dataset.i18n).toBe('ui.clickToBrowse');
+    expect(document.getElementById('dropZoneDesc').dataset.i18n).toBe('ui.dropZoneFormats');
+    expect(document.getElementById('fileInput').accept).toBe('.mid,.midi');
+  });
+
+  it('adds audio once the server reports it is ready', async () => {
+    const a = loadAffordance(() => ({ status: 'ready' }));
+    await a.refreshTranscriptionAffordance();
+
+    expect(a.isAvailable()).toBe(true);
+    expect(document.getElementById('dropZoneBrowseLink').dataset.i18n).toBe(
+      'ui.clickToBrowseAudio'
+    );
+    expect(document.getElementById('dropZoneDesc').dataset.i18n).toBe('ui.dropZoneFormatsAudio');
+    expect(document.getElementById('fileInput').accept).toBe('.mid,.midi,.wav,.mp3');
+  });
+
+  it('stays quiet when the engine is missing, not merely when it errors', async () => {
+    for (const status of ['degraded', 'disabled', 'failed', undefined]) {
+      makePage();
+      const a = loadAffordance(() => ({ status }));
+      await a.refreshTranscriptionAffordance();
+      expect(a.isAvailable()).toBe(false);
+      expect(document.getElementById('fileInput').accept).toBe('.mid,.midi');
+    }
+  });
+
+  it('promises nothing when the command does not exist at all', async () => {
+    const a = loadAffordance(() => {
+      throw new Error('Unknown command: transcription_capabilities');
+    });
+    await a.refreshTranscriptionAffordance();
+
+    expect(a.isAvailable()).toBe(false);
+    expect(document.getElementById('dropZoneBrowseLink').dataset.i18n).toBe('ui.clickToBrowse');
+  });
+
+  it('swaps the key so a locale change re-renders the right variant', async () => {
+    // Setting only textContent would be undone by the next data-i18n pass.
+    const a = loadAffordance(() => ({ status: 'ready' }));
+    await a.refreshTranscriptionAffordance();
+    const strong = document.getElementById('dropZoneBrowseLink');
+    expect(strong.getAttribute('data-i18n')).toBe('ui.clickToBrowseAudio');
+    expect(strong.textContent).toBe('ui.clickToBrowseAudio'); // the i18n double echoes keys
+  });
+
+  it('is re-asked on every reconnection and on an engine change', () => {
+    expect(INDEX).toContain('refreshTranscriptionAffordance();');
+    expect(INDEX).toMatch(/api\.on\('transcription_backend_changed'/);
+    expect(INDEX).toMatch(/api\.on\('transcription_install_complete'/);
+  });
+
+  it('keeps the promise while dragging instead of resetting it', () => {
+    // setDropZoneDragText restores the label after a drag; it must read the
+    // current key, not hardcode the MIDI-only one.
+    const drag = INDEX.slice(
+      INDEX.indexOf('function setDropZoneDragText'),
+      INDEX.indexOf('function setDropZoneDragText') + 900
+    );
+    expect(drag).toContain("getAttribute('data-i18n')");
+  });
+});
+
 describe('settings no longer mention a button', () => {
   function loadSettingsModal() {
     const files = [
