@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Áudio → MIDI"
+    },
+    "transcription": {
+      "title": "Motores Áudio → MIDI",
+      "refresh": "Atualizar"
     }
   },
   "bluetooth": {

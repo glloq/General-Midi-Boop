@@ -15,6 +15,7 @@
  *  - SettingsTheme (addToggleStyles, selectTheme, applyTheme)
  *  - SettingsUpdate (triggerSystemUpdate, checkForUpdates, _showUpdateSuccess)
  *  - SettingsSerial (scanSerialPorts)
+ *  - SettingsTranscription (renderTranscriptionSection, bindTranscriptionSection)
  */
 
 class SettingsModal {
@@ -330,6 +331,9 @@ class SettingsModal {
     // Reset cancellation flag so update polling can resume if needed
     this._updateCancelled = false;
 
+    // Audio → MIDI engines: fetched on open, never blocking it.
+    this.bindTranscriptionSection?.();
+
     // Restore current values
     const darkModeToggle = this.modal.querySelector('#darkModeToggle');
     if (darkModeToggle) darkModeToggle.checked = this.settings.theme === 'dark';
@@ -637,6 +641,9 @@ if (typeof SettingsHotspot !== 'undefined') {
 }
 if (typeof SettingsSF2 !== 'undefined') {
   Object.assign(SettingsModal.prototype, SettingsSF2);
+}
+if (typeof SettingsTranscription !== 'undefined') {
+  Object.assign(SettingsModal.prototype, SettingsTranscription);
 }
 
 // Export global

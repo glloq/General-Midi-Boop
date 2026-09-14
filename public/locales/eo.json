@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Sono → MIDI"
+    },
+    "transcription": {
+      "title": "Motoroj Sono → MIDI",
+      "refresh": "Aktualigi"
     }
   },
   "bluetooth": {

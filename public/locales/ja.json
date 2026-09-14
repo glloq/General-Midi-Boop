@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "オーディオ → MIDI"
+    },
+    "transcription": {
+      "title": "オーディオ → MIDI エンジン",
+      "refresh": "更新"
     }
   },
   "bluetooth": {

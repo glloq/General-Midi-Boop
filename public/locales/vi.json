@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Âm thanh → MIDI"
+    },
+    "transcription": {
+      "title": "Bộ máy Âm thanh → MIDI",
+      "refresh": "Làm mới"
     }
   },
   "bluetooth": {

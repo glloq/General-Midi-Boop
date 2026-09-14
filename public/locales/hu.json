@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Hang → MIDI"
+    },
+    "transcription": {
+      "title": "Hang → MIDI motorok",
+      "refresh": "Frissítés"
     }
   },
   "bluetooth": {

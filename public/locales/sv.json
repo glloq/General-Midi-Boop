@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Ljud → MIDI"
+    },
+    "transcription": {
+      "title": "Ljud → MIDI-motorer",
+      "refresh": "Uppdatera"
     }
   },
   "bluetooth": {

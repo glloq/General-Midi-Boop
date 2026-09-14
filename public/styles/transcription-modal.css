@@ -356,3 +356,74 @@
   color: var(--text-primary, #333);
   font-size: 14px;
 }
+
+/* ============================================================================
+   SECTION RÉGLAGES (§33)
+   ============================================================================ */
+
+.tr-settings-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+  font-size: 12px;
+}
+
+.tr-settings-engines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm, 8px);
+  margin-top: var(--spacing-sm, 8px);
+}
+
+.tr-settings-engine {
+  padding: var(--spacing-sm, 8px);
+  border: 1px solid var(--border-light, #eee);
+  border-radius: var(--border-radius, 4px);
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.75));
+}
+
+.tr-settings-engine-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm, 8px);
+  font-size: 14px;
+  color: var(--text-primary, #333);
+}
+
+.tr-settings-engine p {
+  margin: 4px 0 0;
+}
+
+.tr-settings-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--status-none, #8c8c8c);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.tr-settings-badge.is-available,
+.tr-settings-badge.is-ready {
+  background: var(--status-ok, #27ae60);
+}
+
+.tr-settings-badge.is-broken {
+  background: var(--status-critical, #e8365d);
+}
+
+.tr-settings-badge.is-license_restricted,
+.tr-settings-badge.is-installable,
+.tr-settings-badge.is-degraded {
+  background: var(--status-warning, #f39c12);
+}
+
+/* La restriction de licence n'est jamais discrète (§9). */
+.tr-settings-restricted {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--status-warning, #f39c12);
+}

@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "오디오 → MIDI"
+    },
+    "transcription": {
+      "title": "오디오 → MIDI 엔진",
+      "refresh": "새로 고침"
     }
   },
   "bluetooth": {

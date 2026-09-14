@@ -646,6 +646,9 @@ class Application {
       // the MIDI server from serving (§21).
       try {
         await this.audioTranscriptionService?.cleanupStaleWorkspaces();
+        // One probe at boot so the SYNCHRONOUS health snapshot below has
+        // something truthful to report; /api/health must never spawn ffprobe.
+        await this.audioTranscriptionService?.warmAvailability();
       } catch (error) {
         this.logger.warn(`Transcription scratch sweep failed (non-critical): ${error.message}`);
       }
@@ -782,6 +785,29 @@ class Application {
       }
       return errored(key) ? { status: 'failed', detail: errored(key) } : { status: 'disabled' };
     };
+    /**
+     * Health of the audio → MIDI feature, from CACHED state only — no probe:
+     * /api/health is polled by monitoring and must never spawn an ffprobe.
+     * @returns {{status: string, detail?: string}}
+     */
+    const transcriptionStatus = () => {
+      if (!this.audioTranscriptionService) {
+        const error = errored('transcription');
+        return error
+          ? { status: 'failed', detail: error }
+          : { status: 'disabled', detail: 'Audio transcription is not enabled' };
+      }
+      try {
+        const snapshot = this.audioTranscriptionService.getCapabilitySnapshot();
+        return snapshot.detail
+          ? { status: snapshot.status, detail: snapshot.detail }
+          : { status: snapshot.status };
+      } catch (error) {
+        // Never let an optional feature take /api/health down with it.
+        return { status: 'failed', detail: error.message };
+      }
+    };
+
     /** Never let a misbehaving transport take /api/health down with it. */
     const runtimeStatus = (service) => {
       try {
@@ -859,7 +885,13 @@ class Application {
           'RTP-MIDI is a simplified AppleMIDI implementation (no IN/OK, CK sync or journal)'
       }),
       serial,
-      lighting: optional(this.lightingManager, 'lighting')
+      lighting: optional(this.lightingManager, 'lighting'),
+      // audioTranscription — optional by construction. "No engine installed"
+      // is the normal state of a fresh install, so it reports `disabled`
+      // (which does NOT degrade `overall`); only an engine that is installed
+      // and broken, or missing FFmpeg while an engine is ready, degrades it
+      // (§23/§44).
+      audioTranscription: transcriptionStatus()
     };
 
     // Overall: failed if a core capability failed, else degraded if any

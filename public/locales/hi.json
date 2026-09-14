@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "ऑडियो → MIDI"
+    },
+    "transcription": {
+      "title": "ऑडियो → MIDI इंजन",
+      "refresh": "ताज़ा करें"
     }
   },
   "bluetooth": {

@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Audio → MIDI"
+    },
+    "transcription": {
+      "title": "Audio → MIDI-engines",
+      "refresh": "Vernieuwen"
     }
   },
   "bluetooth": {

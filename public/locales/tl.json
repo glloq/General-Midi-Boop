@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Audio → MIDI"
+    },
+    "transcription": {
+      "title": "Mga Audio → MIDI engine",
+      "refresh": "I-refresh"
     }
   },
   "bluetooth": {

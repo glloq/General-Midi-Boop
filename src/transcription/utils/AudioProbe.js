@@ -82,6 +82,17 @@ export class AudioProbe {
   }
 
   /**
+   * The last tooling answer, without probing. Used by the synchronous health
+   * snapshot; `null` when nothing has been probed yet, which callers must
+   * report as "unknown" rather than as "missing".
+   *
+   * @returns {?Object}
+   */
+  getCachedTooling() {
+    return this._toolingCache ? this._toolingCache.value : null;
+  }
+
+  /**
    * Inspect a media file.
    *
    * @param {string} filePath - Absolute path.

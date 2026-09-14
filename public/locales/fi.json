@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Ääni → MIDI"
+    },
+    "transcription": {
+      "title": "Ääni → MIDI -moottorit",
+      "refresh": "Päivitä"
     }
   },
   "bluetooth": {

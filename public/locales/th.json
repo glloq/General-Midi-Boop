@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "เสียง → MIDI"
+    },
+    "transcription": {
+      "title": "เอนจินเสียง → MIDI",
+      "refresh": "รีเฟรช"
     }
   },
   "bluetooth": {

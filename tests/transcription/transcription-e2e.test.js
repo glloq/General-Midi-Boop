@@ -426,6 +426,66 @@ describe('availability reporting (§23)', () => {
   });
 });
 
+describe('synchronous capability snapshot (§23)', () => {
+  test('reports disabled — not degraded — when nothing is installed', async () => {
+    const { service, registry } = buildStack();
+    registry.unregister('mock-engine');
+    await service.getAvailability();
+
+    const snapshot = service.getCapabilitySnapshot();
+    expect(snapshot.status).toBe('disabled');
+    expect(snapshot.detail).toMatch(/No transcription engine is installed/);
+  });
+
+  test('reports ready once an engine has been probed', async () => {
+    const { service } = buildStack();
+    await service.getAvailability();
+    expect(service.getCapabilitySnapshot()).toMatchObject({ status: 'ready', detail: null });
+  });
+
+  test('an installed-but-broken engine degrades', async () => {
+    const backend = new MockBackend();
+    backend.checkAvailability = async () => ({ status: 'broken', detail: 'venv missing' });
+    const { service } = buildStack({ backend });
+    await service.getAvailability();
+
+    const snapshot = service.getCapabilitySnapshot();
+    expect(snapshot.status).toBe('degraded');
+    expect(snapshot.detail).toMatch(/installed but unusable/);
+  });
+
+  test('performs no I/O — it may be called from /api/health', async () => {
+    const { service } = buildStack();
+    await service.getAvailability();
+    const runner = service.processRunner;
+    const before = runner.calls.length;
+    service.getCapabilitySnapshot();
+    service.getCapabilitySnapshot();
+    expect(runner.calls.length).toBe(before);
+  });
+
+  test('answers before anything has been probed, without claiming readiness', () => {
+    const { service } = buildStack();
+    const snapshot = service.getCapabilitySnapshot();
+    expect(snapshot.status).toBe('disabled');
+    // Unknown is reported as unknown, not as "missing".
+    expect(snapshot.ffmpeg.available).toBeNull();
+  });
+
+  test('a disabled feature says so without probing', () => {
+    const { service } = buildStack({ settings: { enabled: false } });
+    expect(service.getCapabilitySnapshot()).toMatchObject({ status: 'disabled', backends: [] });
+  });
+
+  test('warmAvailability never throws, whatever the probe does', async () => {
+    const { service } = buildStack();
+    service.audioProbe.checkTooling = async () => {
+      throw new Error('ffprobe exploded');
+    };
+    await expect(service.warmAvailability()).resolves.toBeUndefined();
+  });
+});
+
 describe('library naming', () => {
   test('marks the file as a transcription and keeps the original stem', () => {
     expect(buildLibraryFilename('My Song.mp3')).toBe('My Song [Transcribed].mid');

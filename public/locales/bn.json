@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "অডিও → MIDI"
+    },
+    "transcription": {
+      "title": "অডিও → MIDI ইঞ্জিন",
+      "refresh": "রিফ্রেশ"
     }
   },
   "bluetooth": {

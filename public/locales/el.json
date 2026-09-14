@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Ήχος → MIDI"
+    },
+    "transcription": {
+      "title": "Μηχανές Ήχος → MIDI",
+      "refresh": "Ανανέωση"
     }
   },
   "bluetooth": {

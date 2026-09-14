@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Lyd → MIDI"
+    },
+    "transcription": {
+      "title": "Lyd → MIDI-motorer",
+      "refresh": "Opdatér"
     }
   },
   "bluetooth": {

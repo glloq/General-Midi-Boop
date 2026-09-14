@@ -274,6 +274,10 @@
     },
     "transcriptionButton": {
       "title": "Аудіо → MIDI"
+    },
+    "transcription": {
+      "title": "Рушії Аудіо → MIDI",
+      "refresh": "Оновити"
     }
   },
   "bluetooth": {

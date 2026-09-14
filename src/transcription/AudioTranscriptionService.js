@@ -167,6 +167,84 @@ export class AudioTranscriptionService {
   }
 
   /**
+   * Same picture as {@link getAvailability}, but from cached state only —
+   * no probe, no subprocess, no `await`.
+   *
+   * `Application.getCapabilityStatus()` is synchronous and answers
+   * `/api/health`, which monitoring hits regularly: it must never be able to
+   * spawn an ffprobe. The caches are warmed once at boot and refreshed
+   * whenever the UI asks (§23).
+   *
+   * @returns {{status: string, detail: ?string, ffmpeg: Object, backends: Object[]}}
+   */
+  getCapabilitySnapshot() {
+    if (!this.settings.enabled) {
+      return {
+        status: 'disabled',
+        detail: 'Audio transcription is disabled in the configuration',
+        ffmpeg: { available: false, version: null },
+        backends: []
+      };
+    }
+
+    const tooling = this.audioProbe.getCachedTooling();
+    const backends = this.registry ? this.registry.list() : [];
+    const ready = backends.filter((backend) => backend.available);
+    const broken = backends.filter((backend) => backend.status === 'broken');
+
+    let status;
+    let detail = null;
+    if (ready.length > 0 && tooling?.available !== false) {
+      status = 'ready';
+    } else if (broken.length > 0) {
+      // Installed and failing IS a problem worth degrading health for: the
+      // operator was told it would work.
+      status = 'degraded';
+      detail = `${broken.length} transcription engine(s) installed but unusable`;
+    } else if (ready.length > 0 && tooling && tooling.available === false) {
+      status = 'degraded';
+      detail = tooling.detail;
+    } else {
+      // Nothing installed is the NORMAL state of a fresh install, so it is
+      // `disabled` — an optional feature that is simply not set up must not
+      // drag /api/health down (§23/§44).
+      status = 'disabled';
+      detail =
+        backends.length === 0
+          ? 'No transcription engine is installed'
+          : 'No installed transcription engine is ready';
+    }
+
+    return {
+      status,
+      detail,
+      ffmpeg: {
+        available: tooling ? tooling.available : null,
+        version: tooling?.ffmpeg?.version ?? null
+      },
+      backends: backends.map((backend) => ({
+        id: backend.id,
+        name: backend.name,
+        status: backend.status,
+        available: backend.available
+      }))
+    };
+  }
+
+  /**
+   * Warm the availability caches once, at boot, so the synchronous health
+   * snapshot has something truthful to report. Never throws.
+   * @returns {Promise<void>}
+   */
+  async warmAvailability() {
+    try {
+      await this.getAvailability();
+    } catch (error) {
+      this.logger.warn(`Transcription availability probe failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Queue a transcription. Returns as soon as the job exists — the work runs
    * behind the job manager and the client follows it through events (§17).
    *
