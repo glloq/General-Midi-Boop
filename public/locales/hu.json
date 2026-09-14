@@ -271,6 +271,16 @@
       "description": "Szinkronizált dalszövegpanelt jelenít meg karaoke MIDI fájlokhoz",
       "enabled": "Dalszöveg engedélyezve",
       "disabled": "Dalszöveg letiltva"
+    },
+    "transcription": {
+      "title": "Hang → MIDI motorok",
+      "refresh": "Frissítés",
+      "install": "Telepítés",
+      "uninstall": "Eltávolítás",
+      "repair": "Javítás",
+      "installing": "Telepítés…",
+      "consent": "Telepíti a következőt: {name}?\n\nModell licenc: {model}\nEl kell fogadnia, mielőtt bármi letöltődne.",
+      "confirmUninstall": "Eltávolítja a(z) {name} elemet és a környezetét?"
     }
   },
   "bluetooth": {
@@ -726,7 +736,7 @@
     "renameFile": "Fájl átnevezése",
     "microphoneSettings": "Mikrofon beállításai",
     "dropFilesHere": "Húzza ide vagy",
-    "clickToBrowse": "kattintson MIDI fájlok hozzáadásához",
+    "clickToBrowse": "kattintson MIDI- vagy hangfájlok hozzáadásához",
     "noMidiFilesDropped": "Nem található MIDI fájl az áthúzott fájlok között.",
     "fileTooLarge": "A fájl túl nagy ({size}). Korlát: {max}",
     "duplicateFileWarning": "⚠️ A fájl már létezik - felül lesz írva",
@@ -3125,5 +3135,87 @@
     "groupInputs": "MIDI-bemenetek",
     "groupOutputs": "MIDI-kimenetek",
     "groupOther": "Egyéb eszközök"
+  },
+  "transcription": {
+    "title": "Hang → MIDI",
+    "step": {
+      "file": "Válasszon hangfájlt",
+      "engine": "Motor",
+      "quality": "Minőség"
+    },
+    "file": {
+      "name": "Fájl",
+      "size": "Méret",
+      "duration": "Hossz"
+    },
+    "dropzone": {
+      "hint": "Húzzon ide egy hangfájlt, vagy",
+      "browse": "tallózza a fájljait",
+      "aria": "Válasszon átalakítandó hangfájlt"
+    },
+    "engine": {
+      "auto": "Automatikus",
+      "autoHint": "A fájlhoz a legjobb telepített motort választjuk.",
+      "licence": "Kód licenc: {code} · Modell licenc: {model}",
+      "nonCommercial": "Csak nem kereskedelmi használat"
+    },
+    "quality": {
+      "fast": "Gyors",
+      "balanced": "Kiegyensúlyozott",
+      "maximum": "Maximális"
+    },
+    "options": {
+      "title": "Beállítások",
+      "preserveDynamics": "Dinamika megőrzése",
+      "preservePitchBends": "Pitch bendek megőrzése",
+      "detectTempo": "Tempóváltások felismerése",
+      "detectDrums": "Dobok felismerése",
+      "detectInstruments": "Hangszerek felismerése",
+      "unsupported": "Ez a motor nem támogatja"
+    },
+    "status": {
+      "available": "Kész",
+      "not_installed": "Nincs telepítve",
+      "installable": "Telepíthető",
+      "license_restricted": "Licenc elfogadása szükséges",
+      "unsupported_platform": "Nem támogatott platform",
+      "broken": "Telepítve, de nem használható"
+    },
+    "stage": {
+      "preprocessing": "Hang előkészítése",
+      "transcribing": "Átírás",
+      "postprocessing": "Hangok tisztítása",
+      "generating_midi": "MIDI létrehozása",
+      "importing": "Hozzáadás a könyvtárhoz"
+    },
+    "progress": {
+      "title": "{name} átalakítása",
+      "working": "Folyamatban…"
+    },
+    "result": {
+      "complete": "Az átírás elkészült",
+      "failed": "Az átírás sikertelen",
+      "detected": "Felismerve",
+      "warnings": "Figyelmeztetések",
+      "noWarnings": "Nincs figyelmeztetés",
+      "notes": "hang",
+      "duplicate": "Ez a fájl már a könyvtárban volt — a meglévőt használtuk.",
+      "unknownInstrument": "Ismeretlen hangszer"
+    },
+    "actions": {
+      "start": "Átalakítás",
+      "cancel": "Mégse",
+      "openEditor": "MIDI-szerkesztő megnyitása",
+      "useFile": "Fájl használata",
+      "newConversion": "Új átalakítás"
+    },
+    "unavailable": {
+      "title": "A Hang → MIDI átalakítás nem érhető el ezen a kiszolgálón.",
+      "ffmpeg": "Az FFmpeg nincs telepítve.",
+      "noEngine": "Nincs telepített átírómotor.",
+      "generic": "A funkció nem áll készen.",
+      "engines": "Ismert motorok:",
+      "help": "Motor telepítéséhez lásd: docs/AUDIO_TRANSCRIPTION.md."
+    }
   }
 }

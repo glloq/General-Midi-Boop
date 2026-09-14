@@ -5373,6 +5373,7 @@
     <link rel="stylesheet" href="styles/loop-creator-modal.css">
     <link rel="stylesheet" href="styles/loop-editor-modal.css">
     <link rel="stylesheet" href="styles/settings-modal.css">
+    <link rel="stylesheet" href="styles/transcription-modal.css">
     <link rel="stylesheet" href="styles/keyboard-hand-position-editor.css">
     <!-- WCAG 2.4.7 fallback focus ring — must be loaded LAST so it wins
          the cascade against every component-level `:focus { outline:none }`.
@@ -5586,7 +5587,10 @@
                 <section class="card" aria-label="MIDI files">
                     <!-- Barre unifiee gestion fichiers : drop-zone + nouveau dossier + recherche + outils, tout sur une seule ligne -->
                     <div class="file-toolbar">
-                        <input type="file" id="fileInput" accept=".mid,.midi" multiple style="display: none;" aria-label="Select MIDI files">
+                        <!-- Audio extensions mirror TranscriptionModal.AUDIO_EXTENSIONS;
+                             they are filled in at startup from that list so the two
+                             cannot drift. -->
+                        <input type="file" id="fileInput" accept=".mid,.midi" multiple style="display: none;" aria-label="Select MIDI or audio files">
 
                         <div class="search-bar-container">
                             <div class="file-toolbar-main-row">
@@ -5598,7 +5602,7 @@
                                             <strong id="dropZoneBrowseLink" data-i18n="ui.clickToBrowse">cliquez pour ajouter des fichiers MIDI</strong>
                                         </div>
                                     </div>
-                                    <span id="dropZoneDesc" class="sr-only">Formats acceptés : .mid, .midi. Taille max : 10 MB. Raccourci : Ctrl+O</span>
+                                    <span id="dropZoneDesc" class="sr-only">Formats acceptés : .mid, .midi (10 MB max) ; un fichier audio ouvre la conversion Audio → MIDI. Raccourci : Ctrl+O</span>
                                 </div>
                                 <span class="file-count-badge" id="fileCountBadge" aria-live="polite" style="display: none;"></span>
 
@@ -6286,7 +6290,9 @@
     <script src="js/features/settings/SettingsBankEffects.js"></script>
     <script src="js/features/settings/SettingsHotspot.js"></script>
     <script src="js/features/settings/SettingsSF2.js"></script>
+    <script src="js/features/settings/SettingsTranscription.js"></script>
     <script src="js/features/SettingsModal.js"></script>
+    <script src="js/features/transcription/TranscriptionModal.js"></script>
 
     <!-- Piano Roll View Component -->
     <script src="js/features/PianoRollView.js"></script>
@@ -6530,6 +6536,7 @@
 
         // 🆕 Instance du modal de réglages
         let settingsModal = null;
+        let transcriptionModal = null;
 
         // 🆕 Instance du piano roll view
         let pianoRollView = null;
@@ -12774,10 +12781,90 @@
 
         // ========== ÉVÉNEMENTS ==========
 
+        // ---- Fichiers entrants : MIDI vers la bibliothèque, audio vers la conversion ----
+        //
+        // Un fichier audio déposé sur l'interface ouvre la modale Audio → MIDI
+        // avec ce fichier déjà choisi. Ce qui compte comme "audio" vient de
+        // TranscriptionModal.AUDIO_EXTENSIONS : deux listes divergeraient, et
+        // l'échec serait silencieux (un format que la modale accepte, refusé
+        // ici par un « aucun fichier MIDI détecté »).
+
+        /** @returns {{midi: File[], audio: File[], rejected: number}} */
+        function partitionIncomingFiles(fileList) {
+            const midi = [];
+            const audio = [];
+            let rejected = 0;
+            for (const file of Array.from(fileList || [])) {
+                const name = file.name.toLowerCase();
+                if (name.endsWith('.mid') || name.endsWith('.midi')) midi.push(file);
+                else if (window.TranscriptionModal?.isAudioFile(file)) audio.push(file);
+                else rejected++;
+            }
+            return { midi, audio, rejected };
+        }
+
+        /** Ouvre la modale de conversion sur un fichier, en la créant au besoin. */
+        function openTranscriptionWith(file) {
+            if (!transcriptionModal) {
+                log('Initializing audio transcription modal...', 'info');
+                transcriptionModal = new TranscriptionModal(api, {
+                    logger: {
+                        info: (msg, data) => log(msg, 'info', data),
+                        error: (msg, data) => log(msg, 'error', data)
+                    },
+                    // Réutilise les composants existants (§32) : pas de second
+                    // éditeur, pas de seconde bibliothèque.
+                    onOpenEditor: (fileId, filename) => editFile(fileId, filename),
+                    onUseFile: (fileId) => selectFile(fileId),
+                    onImported: () => loadFiles()
+                });
+            }
+            transcriptionModal.openWith(file);
+        }
+
+        /**
+         * Point d'entrée unique : dépôt sur la zone, dépôt sur la page, ou
+         * sélection via le navigateur de fichiers.
+         */
+        function acceptIncomingFiles(fileList) {
+            const input = document.getElementById('fileInput');
+            const { midi, audio, rejected } = partitionIncomingFiles(fileList);
+
+            if (midi.length > 0) {
+                // uploadFile() lit fileInput.files : on le restreint aux MIDI
+                // pour qu'un lot mixte n'envoie pas l'audio à la bibliothèque.
+                const dataTransfer = new DataTransfer();
+                midi.forEach(f => dataTransfer.items.add(f));
+                input.files = dataTransfer.files;
+                uploadFile();
+            } else {
+                // Vider la sélection, sinon re-choisir le même fichier
+                // n'émet plus d'événement `change`.
+                input.value = '';
+            }
+
+            if (audio.length > 0) {
+                if (audio.length > 1) {
+                    log(`${audio.length} audio files: converting the first one (${audio[0].name}).`, 'warning');
+                }
+                openTranscriptionWith(audio[0]);
+            } else if (midi.length === 0 && rejected > 0) {
+                log('No MIDI or audio file detected in dropped files.', 'warning');
+            }
+        }
+
+        // Le sélecteur propose aussi l'audio — sans quoi la conversion ne
+        // serait atteignable qu'au glisser-déposer, ce qui est pénible sur
+        // une tablette. La liste vient de la modale, jamais d'une copie.
+        if (window.TranscriptionModal) {
+            const picker = document.getElementById('fileInput');
+            picker.accept = `.mid,.midi,${window.TranscriptionModal.acceptAttribute()}`;
+        }
+
         document.getElementById('fileInput').addEventListener('change', function() {
             // Auto-upload quand des fichiers sont sélectionnés
             if (this.files.length > 0) {
-                uploadFile();
+                acceptIncomingFiles(this.files);
             }
         });
         document.getElementById('createFolderBtn').addEventListener('click', createFolder);
@@ -12846,21 +12933,7 @@
             uploadDropZone.classList.remove('drag-over');
             setDropZoneDragText(false);
 
-            const droppedFiles = Array.from(e.dataTransfer.files).filter(f =>
-                f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi')
-            );
-
-            if (droppedFiles.length === 0) {
-                log('No MIDI file detected in dropped files.', 'warning');
-                return;
-            }
-
-            // Injecter les fichiers dans le fileInput et lancer l'upload
-            const dataTransfer = new DataTransfer();
-            droppedFiles.forEach(f => dataTransfer.items.add(f));
-            document.getElementById('fileInput').files = dataTransfer.files;
-
-            uploadFile();
+            acceptIncomingFiles(e.dataTransfer.files);
         });
 
         // Drop de fichiers MIDI sur toute la page (overlay plein écran + zone inline)
@@ -12925,21 +12998,7 @@
             // Ignorer si le drop vient de la zone inline (déjà géré par son propre handler)
             if (uploadDropZone.contains(e.target)) return;
 
-            const droppedFiles = Array.from(e.dataTransfer.files).filter(f =>
-                f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi')
-            );
-
-            if (droppedFiles.length === 0) {
-                if (e.dataTransfer.files.length > 0) {
-                    log('No MIDI file detected in dropped files.', 'warning');
-                }
-                return;
-            }
-
-            const dataTransfer = new DataTransfer();
-            droppedFiles.forEach(f => dataTransfer.items.add(f));
-            document.getElementById('fileInput').files = dataTransfer.files;
-            uploadFile();
+            acceptIncomingFiles(e.dataTransfer.files);
         });
         initFolderModal(); // Initialiser le modal de création de dossier
         initRenameModal(); // Initialiser le modal de renommage

@@ -271,6 +271,16 @@
       "description": "Karaoke MIDI dosyaları için senkronize bir şarkı sözü paneli görüntüler",
       "enabled": "Şarkı sözleri etkin",
       "disabled": "Şarkı sözleri devre dışı"
+    },
+    "transcription": {
+      "title": "Ses → MIDI motorları",
+      "refresh": "Yenile",
+      "install": "Kur",
+      "uninstall": "Kaldır",
+      "repair": "Onar",
+      "installing": "Kuruluyor…",
+      "consent": "{name} kurulsun mu?\n\nModel lisansı: {model}\nHerhangi bir indirmeden önce kabul etmelisiniz.",
+      "confirmUninstall": "{name} ve ortamı kaldırılsın mı?"
     }
   },
   "bluetooth": {
@@ -726,7 +736,7 @@
     "renameFile": "Dosyayı yeniden adlandır",
     "microphoneSettings": "Mikrofon ayarları",
     "dropFilesHere": "Sürükleyip bırakın veya",
-    "clickToBrowse": "MIDI dosyaları eklemek için tıklayın",
+    "clickToBrowse": "MIDI veya ses dosyaları eklemek için tıklayın",
     "noMidiFilesDropped": "Bırakılan dosyalarda MIDI dosyası bulunamadı.",
     "fileTooLarge": "Dosya çok büyük ({size}). Sınır: {max}",
     "duplicateFileWarning": "⚠️ Dosya zaten mevcut - üzerine yazılacak",
@@ -3125,5 +3135,87 @@
     "groupInputs": "MIDI girişleri",
     "groupOutputs": "MIDI çıkışları",
     "groupOther": "Diğer cihazlar"
+  },
+  "transcription": {
+    "title": "Ses → MIDI",
+    "step": {
+      "file": "Bir ses dosyası seçin",
+      "engine": "Motor",
+      "quality": "Kalite"
+    },
+    "file": {
+      "name": "Dosya",
+      "size": "Boyut",
+      "duration": "Süre"
+    },
+    "dropzone": {
+      "hint": "Bir ses dosyasını sürükleyip bırakın veya",
+      "browse": "dosyalarınıza göz atın",
+      "aria": "Dönüştürülecek ses dosyasını seçin"
+    },
+    "engine": {
+      "auto": "Otomatik",
+      "autoHint": "Bu dosya için kurulu en iyi motor seçilir.",
+      "licence": "Kod lisansı: {code} · Model lisansı: {model}",
+      "nonCommercial": "Yalnızca ticari olmayan kullanım"
+    },
+    "quality": {
+      "fast": "Hızlı",
+      "balanced": "Dengeli",
+      "maximum": "En yüksek"
+    },
+    "options": {
+      "title": "Seçenekler",
+      "preserveDynamics": "Nüansları koru",
+      "preservePitchBends": "Pitch bend’leri koru",
+      "detectTempo": "Tempo değişimlerini algıla",
+      "detectDrums": "Davulları algıla",
+      "detectInstruments": "Enstrümanları algıla",
+      "unsupported": "Bu motor tarafından desteklenmiyor"
+    },
+    "status": {
+      "available": "Hazır",
+      "not_installed": "Kurulu değil",
+      "installable": "Kurulabilir",
+      "license_restricted": "Lisans onayı gerekli",
+      "unsupported_platform": "Desteklenmeyen platform",
+      "broken": "Kurulu ama kullanılamıyor"
+    },
+    "stage": {
+      "preprocessing": "Ses hazırlanıyor",
+      "transcribing": "Deşifre ediliyor",
+      "postprocessing": "Notalar temizleniyor",
+      "generating_midi": "MIDI oluşturuluyor",
+      "importing": "Kitaplığa ekleniyor"
+    },
+    "progress": {
+      "title": "{name} dönüştürülüyor",
+      "working": "Çalışıyor…"
+    },
+    "result": {
+      "complete": "Deşifre tamamlandı",
+      "failed": "Deşifre başarısız",
+      "detected": "Algılananlar",
+      "warnings": "Uyarılar",
+      "noWarnings": "Uyarı yok",
+      "notes": "nota",
+      "duplicate": "Bu dosya kitaplıkta zaten vardı — mevcut olan yeniden kullanıldı.",
+      "unknownInstrument": "Bilinmeyen enstrüman"
+    },
+    "actions": {
+      "start": "Dönüştür",
+      "cancel": "İptal",
+      "openEditor": "MIDI düzenleyiciyi aç",
+      "useFile": "Dosyayı kullan",
+      "newConversion": "Yeni dönüştürme"
+    },
+    "unavailable": {
+      "title": "Bu sunucuda Ses → MIDI dönüştürme kullanılamıyor.",
+      "ffmpeg": "FFmpeg kurulu değil.",
+      "noEngine": "Kurulu bir deşifre motoru yok.",
+      "generic": "Özellik hazır değil.",
+      "engines": "Bilinen motorlar:",
+      "help": "Bir motor kurmak için docs/AUDIO_TRANSCRIPTION.md dosyasına bakın."
+    }
   }
 }

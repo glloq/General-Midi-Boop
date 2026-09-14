@@ -733,6 +733,134 @@ class BackendAPIClient {
   }
 
   // ========================================================================
+  // AUDIO -> MIDI TRANSCRIPTION
+  // ========================================================================
+
+  /**
+   * Is the audio → MIDI feature usable on this server?
+   *
+   * Always answers — a server with no engine reports `disabled`/`degraded`
+   * rather than failing, so the UI can decide whether to offer the feature
+   * at all.
+   *
+   * @param {boolean} [refresh=false] - Re-probe FFmpeg and every engine.
+   * @returns {Promise<Object>} `{status, detail, ffmpeg, backends}`.
+   */
+  async getTranscriptionCapabilities(refresh = false) {
+    return this.sendCommand('transcription_capabilities', { refresh });
+  }
+
+  /**
+   * Engines with their capabilities, status and licensing.
+   * @param {boolean} [refresh=false]
+   * @returns {Promise<Object[]>}
+   */
+  async listTranscriptionBackends(refresh = false) {
+    const result = await this.sendCommand('transcription_backends', { refresh });
+    return result.backends || [];
+  }
+
+  /**
+   * Upload an audio file and queue its transcription.
+   *
+   * Goes over HTTP, not the WebSocket: audio routinely exceeds the 16 MB
+   * frame cap, and base64 would inflate it by a third (see
+   * `POST /api/transcription`). Returns as soon as the job is queued — the
+   * work is followed through `transcription_*` events.
+   *
+   * @param {File|Blob} file - File from an `<input type="file">`.
+   * @param {Object} [options]
+   * @param {string} [options.folder='/'] - Library folder for the result.
+   * @param {?string} [options.backendId] - null/absent = automatic choice.
+   * @param {string} [options.quality] - `fast` | `balanced` | `maximum`.
+   * @param {string} [options.preset] - `raw` | `balanced` | `clean`.
+   * @param {Object} [options.flags] - Feature toggles (detectDrums, …).
+   * @returns {Promise<Object>} `{job}`.
+   */
+  async transcribeAudioFile(file, options = {}) {
+    const params = new URLSearchParams({
+      filename: file.name || 'audio',
+      folder: options.folder || '/'
+    });
+    if (options.backendId) params.set('backendId', options.backendId);
+    if (options.quality) params.set('quality', options.quality);
+    if (options.preset) params.set('preset', options.preset);
+    for (const [flag, value] of Object.entries(options.flags || {})) {
+      params.set(flag, value ? '1' : '0');
+    }
+    return this._uploadBinary(`/api/transcription?${params.toString()}`, file);
+  }
+
+  /**
+   * @param {?string} [jobId] - Omit to list every known job.
+   * @returns {Promise<Object>} `{job}` or `{jobs}`.
+   */
+  async getTranscriptionStatus(jobId = null) {
+    return this.sendCommand('transcription_status', jobId ? { jobId } : {});
+  }
+
+  /**
+   * @param {string} jobId
+   * @returns {Promise<Object>} `{cancelled, job}`.
+   */
+  async cancelTranscription(jobId) {
+    return this.sendCommand('transcription_cancel', { jobId });
+  }
+
+  /**
+   * The rich result of a finished job (notes, confidence, expression).
+   * @param {string} jobId
+   * @returns {Promise<Object>} `{job, result}`.
+   */
+  async getTranscriptionResult(jobId) {
+    return this.sendCommand('transcription_result', { jobId });
+  }
+
+  /**
+   * Install a transcription engine.
+   *
+   * `acceptedModelLicense` is the licence the UI actually SHOWED the user:
+   * the server refuses the install if the engine's licence has changed since,
+   * so a page left open cannot consent to terms nobody read (§8).
+   *
+   * @param {string} backendId
+   * @param {{acceptLicense?: boolean, acceptedModelLicense?: ?string}} [options]
+   * @returns {Promise<Object>} `{backend}` — the refreshed descriptor.
+   */
+  async installTranscriptionBackend(backendId, options = {}) {
+    return this.sendCommand(
+      'transcription_install_backend',
+      {
+        backendId,
+        acceptLicense: options.acceptLicense === true,
+        ...(options.acceptedModelLicense
+          ? { acceptedModelLicense: options.acceptedModelLicense }
+          : {})
+      },
+      // Installing TensorFlow on a Pi is measured in minutes, not seconds.
+      60 * 60 * 1000
+    );
+  }
+
+  /**
+   * @param {string} backendId
+   * @returns {Promise<Object>} `{backend}`.
+   */
+  async uninstallTranscriptionBackend(backendId) {
+    return this.sendCommand('transcription_uninstall_backend', { backendId }, 5 * 60 * 1000);
+  }
+
+  /**
+   * One engine's descriptor plus any install currently running.
+   * @param {string} backendId
+   * @param {boolean} [refresh=false]
+   * @returns {Promise<Object>} `{backend, install}`.
+   */
+  async getTranscriptionBackendStatus(backendId, refresh = false) {
+    return this.sendCommand('transcription_backend_status', { backendId, refresh });
+  }
+
+  // ========================================================================
   // UTILITIES
   // ========================================================================
 }

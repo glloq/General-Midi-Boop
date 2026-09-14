@@ -102,6 +102,25 @@ class Config {
         // See src/files/SF2PresetService.js for the consumer.
         cacheMaxBytes: 128 * 1024 * 1024,
         cacheMaxEntries: 256
+      },
+      // Audio -> MIDI transcription. Optional feature: the defaults below
+      // are the resource guards, NOT a promise that any engine is installed.
+      // Canonical values + clamping live in
+      // src/transcription/TranscriptionConfig.js, which is what services
+      // read; this section only seeds it.
+      transcription: {
+        enabled: true,
+        dataDir: './data/transcription',
+        maxAudioFileBytes: 100 * 1024 * 1024,
+        maxAudioDurationSeconds: 600,
+        maxParallelJobs: 1,
+        maxTempDiskBytes: 2 * 1024 * 1024 * 1024,
+        jobTimeoutMs: 15 * 60 * 1000,
+        keepOriginalAudio: false,
+        keepTempFiles: false,
+        postProcessingPreset: 'balanced',
+        availabilityCacheMs: 60 * 1000,
+        autoImportToLibrary: true
       }
     };
   }
@@ -130,7 +149,16 @@ class Config {
       GMBOOP_SF2_CACHE_MAX_BYTES: 'sf2.cacheMaxBytes',
       GMBOOP_SF2_CACHE_MAX_ENTRIES: 'sf2.cacheMaxEntries',
       GMBOOP_SECURITY_MODE: 'security.mode',
-      GMBOOP_RTP_MIDI_PORT: 'network.rtpMidiPort'
+      GMBOOP_RTP_MIDI_PORT: 'network.rtpMidiPort',
+      GMBOOP_TRANSCRIPTION_ENABLED: 'transcription.enabled',
+      GMBOOP_TRANSCRIPTION_DATA_DIR: 'transcription.dataDir',
+      GMBOOP_TRANSCRIPTION_MAX_AUDIO_BYTES: 'transcription.maxAudioFileBytes',
+      GMBOOP_TRANSCRIPTION_MAX_AUDIO_SECONDS: 'transcription.maxAudioDurationSeconds',
+      GMBOOP_TRANSCRIPTION_MAX_PARALLEL_JOBS: 'transcription.maxParallelJobs',
+      GMBOOP_TRANSCRIPTION_MAX_TEMP_BYTES: 'transcription.maxTempDiskBytes',
+      GMBOOP_TRANSCRIPTION_JOB_TIMEOUT_MS: 'transcription.jobTimeoutMs',
+      GMBOOP_TRANSCRIPTION_KEEP_AUDIO: 'transcription.keepOriginalAudio',
+      GMBOOP_TRANSCRIPTION_KEEP_TEMP: 'transcription.keepTempFiles'
     };
 
     for (const [envKey, configKey] of Object.entries(envMap)) {
@@ -219,7 +247,21 @@ class Config {
       'latency.defaultIterations': (v) => Number.isInteger(v) && v >= 1 && v <= 100,
       'latency.recalibrationDays': (v) => Number.isInteger(v) && v >= 1,
       'ble.scanDuration': (v) => Number.isInteger(v) && v > 0,
-      'serial.baudRate': (v) => Number.isInteger(v) && v > 0
+      'serial.baudRate': (v) => Number.isInteger(v) && v > 0,
+      // Transcription: reject obviously-wrong operator input here; the real
+      // clamping to Pi-survivable ranges happens in
+      // src/transcription/TranscriptionConfig.js, which every consumer reads.
+      'transcription.enabled': (v) => typeof v === 'boolean',
+      'transcription.dataDir': (v) =>
+        typeof v === 'string' && v.length > 0 && !path.normalize(v).startsWith('..'),
+      'transcription.maxAudioFileBytes': (v) => Number.isInteger(v) && v > 0,
+      'transcription.maxAudioDurationSeconds': (v) => Number.isInteger(v) && v > 0,
+      'transcription.maxParallelJobs': (v) => Number.isInteger(v) && v >= 1,
+      'transcription.maxTempDiskBytes': (v) => Number.isInteger(v) && v > 0,
+      'transcription.jobTimeoutMs': (v) => Number.isInteger(v) && v > 0,
+      'transcription.keepOriginalAudio': (v) => typeof v === 'boolean',
+      'transcription.keepTempFiles': (v) => typeof v === 'boolean',
+      'transcription.postProcessingPreset': (v) => ['raw', 'balanced', 'clean'].includes(v)
     };
 
     if (validators[key] && !validators[key](value)) {
@@ -319,6 +361,16 @@ class Config {
    */
   get network() {
     return this.config.network || { rtpMidiPort: 5004 };
+  }
+
+  /**
+   * @returns {Object} `transcription` section. Falls back to an empty object
+   *   so callers can read it without null-checks — the authoritative
+   *   defaults and clamping live in
+   *   `src/transcription/TranscriptionConfig.js`.
+   */
+  get transcription() {
+    return this.config.transcription || {};
   }
 
   /**

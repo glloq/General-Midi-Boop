@@ -35,6 +35,7 @@ The installer sets up Node.js, system dependencies, auto-start on boot and (opti
 - **Preview** any loop or MIDI file with the original sound or the instrument-adapted rendering, with optional per-instrument SoundFonts.
 - **Specialized virtual keyboards** that match each instrument (fretboard, drum pad, harp, accordion…).
 - **Lighting control** synced to playback, from simple LED strips to professional DMX.
+- **Turn audio into MIDI** — drop a recording in and get an editable MIDI file, entirely offline (optional; the engine is installed on demand).
 - **Built to run on its own**: offline-first, one-click WiFi hotspot, one-button full system update, tablet-ready UI, 28 languages.
 
 ## Connect any instrument
@@ -106,6 +107,29 @@ A multi-mode editor with four specialized views over a shared transport and per-
 
 A dedicated touch mode (separate Move / Add / Resize controls) makes it usable on tablets. See [docs/MIDI_EDITOR.md](./docs/MIDI_EDITOR.md).
 
+## Audio → MIDI
+
+Have a recording but no score? Drop the audio in and get a MIDI file in the
+library, ready to edit, adapt and play on the orchestra like any other.
+
+- **Anything FFmpeg reads** — `.wav`, `.mp3`, `.flac`, `.ogg`, `.m4a`, `.aac`,
+  `.aiff`, and the audio track of a `.mp4` / `.mkv` / `.webm`.
+- **Runs on the Pi, offline** — the transcription engine is a local program, not
+  a cloud service; nothing leaves the box.
+- **Optional and opt-in** — the feature is off until you enable it, and no model
+  is ever downloaded without showing you its licence first. GMB ships no
+  AI model.
+- **Musical, not literal** — pitch bend and breath dynamics are preserved, ghost
+  notes and duplicates are cleaned up, and three presets (Raw / Balanced /
+  Clean) decide how much tidying happens.
+- **Straight into the library** — the result lands in the same place as an
+  uploaded MIDI file, so the editor, the auto-assigner and playback all work on
+  it unchanged.
+
+Drop an audio file anywhere on the interface — or pick one from the file
+browser — and the conversion opens with that file ready to go. See
+[docs/AUDIO_TRANSCRIPTION.md](./docs/AUDIO_TRANSCRIPTION.md).
+
 ## Lighting
 
 ![Lighting control](docs/images/lumiere.png)
@@ -165,6 +189,7 @@ Deployment options: direct Node.js (`npm start`), **PM2** for production with au
 - [Auto-Assignment System](./docs/AUTO_ASSIGNMENT.md)
 - [GPIO MIDI Wiring](./docs/GPIO_MIDI_WIRING.md)
 - [MIDI Editor](./docs/MIDI_EDITOR.md)
+- [Audio → MIDI Transcription](./docs/AUDIO_TRANSCRIPTION.md)
 - [SysEx Identity Protocol](./docs/SYSEX_IDENTITY.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Changelog](./CHANGELOG.md)

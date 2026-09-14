@@ -271,6 +271,16 @@
       "description": "Muestra un panel de letras sincronizado para archivos MIDI de karaoke",
       "enabled": "Letras activadas",
       "disabled": "Letras desactivadas"
+    },
+    "transcription": {
+      "title": "Motores Audio → MIDI",
+      "refresh": "Actualizar",
+      "install": "Instalar",
+      "uninstall": "Desinstalar",
+      "repair": "Reparar",
+      "installing": "Instalando…",
+      "consent": "¿Instalar {name}?\n\nLicencia del modelo: {model}\nDebe aceptarla antes de descargar nada.",
+      "confirmUninstall": "¿Eliminar {name} y su entorno?"
     }
   },
   "bluetooth": {
@@ -726,7 +736,7 @@
     "renameFile": "Renombrar archivo",
     "microphoneSettings": "Ajustes del micrófono",
     "dropFilesHere": "Arrastrar y soltar o",
-    "clickToBrowse": "clic para añadir archivos MIDI",
+    "clickToBrowse": "clic para añadir archivos MIDI o de audio",
     "noMidiFilesDropped": "No se encontraron archivos MIDI en los archivos soltados.",
     "fileTooLarge": "Archivo demasiado grande ({size}). Límite: {max}",
     "duplicateFileWarning": "⚠️ El archivo ya existe - será sobrescrito",
@@ -3125,5 +3135,87 @@
     "groupInputs": "Entradas MIDI",
     "groupOutputs": "Salidas MIDI",
     "groupOther": "Otros dispositivos"
+  },
+  "transcription": {
+    "title": "Audio → MIDI",
+    "step": {
+      "file": "Elegir un archivo de audio",
+      "engine": "Motor",
+      "quality": "Calidad"
+    },
+    "file": {
+      "name": "Archivo",
+      "size": "Tamaño",
+      "duration": "Duración"
+    },
+    "dropzone": {
+      "hint": "Arrastra y suelta un archivo de audio, o",
+      "browse": "explora tus archivos",
+      "aria": "Elegir un archivo de audio para convertir"
+    },
+    "engine": {
+      "auto": "Automático",
+      "autoHint": "Se elige el mejor motor instalado para este archivo.",
+      "licence": "Licencia del código: {code} · Licencia del modelo: {model}",
+      "nonCommercial": "Solo uso no comercial"
+    },
+    "quality": {
+      "fast": "Rápida",
+      "balanced": "Equilibrada",
+      "maximum": "Máxima"
+    },
+    "options": {
+      "title": "Opciones",
+      "preserveDynamics": "Conservar la dinámica",
+      "preservePitchBends": "Conservar los pitch bends",
+      "detectTempo": "Detectar cambios de tempo",
+      "detectDrums": "Detectar la batería",
+      "detectInstruments": "Detectar instrumentos",
+      "unsupported": "No compatible con este motor"
+    },
+    "status": {
+      "available": "Listo",
+      "not_installed": "No instalado",
+      "installable": "Se puede instalar",
+      "license_restricted": "Requiere aceptar la licencia",
+      "unsupported_platform": "Plataforma no compatible",
+      "broken": "Instalado pero inutilizable"
+    },
+    "stage": {
+      "preprocessing": "Preparando el audio",
+      "transcribing": "Transcribiendo",
+      "postprocessing": "Limpiando las notas",
+      "generating_midi": "Generando MIDI",
+      "importing": "Añadiendo a la biblioteca"
+    },
+    "progress": {
+      "title": "Convirtiendo {name}",
+      "working": "Trabajando…"
+    },
+    "result": {
+      "complete": "Transcripción completada",
+      "failed": "La transcripción falló",
+      "detected": "Detectado",
+      "warnings": "Advertencias",
+      "noWarnings": "Sin advertencias",
+      "notes": "notas",
+      "duplicate": "Este archivo ya estaba en la biblioteca: se reutilizó el existente.",
+      "unknownInstrument": "Instrumento desconocido"
+    },
+    "actions": {
+      "start": "Convertir",
+      "cancel": "Cancelar",
+      "openEditor": "Abrir el editor MIDI",
+      "useFile": "Usar el archivo",
+      "newConversion": "Nueva conversión"
+    },
+    "unavailable": {
+      "title": "La conversión Audio → MIDI no está disponible en este servidor.",
+      "ffmpeg": "FFmpeg no está instalado.",
+      "noEngine": "No hay ningún motor de transcripción instalado.",
+      "generic": "La función no está lista.",
+      "engines": "Motores conocidos:",
+      "help": "Consulta docs/AUDIO_TRANSCRIPTION.md para instalar un motor."
+    }
   }
 }

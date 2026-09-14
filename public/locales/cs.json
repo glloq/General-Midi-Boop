@@ -271,6 +271,16 @@
       "description": "Zobrazuje synchronizovaný panel textu pro karaoke MIDI soubory",
       "enabled": "Text zapnut",
       "disabled": "Text vypnut"
+    },
+    "transcription": {
+      "title": "Enginy Audio → MIDI",
+      "refresh": "Obnovit",
+      "install": "Nainstalovat",
+      "uninstall": "Odinstalovat",
+      "repair": "Opravit",
+      "installing": "Instalace…",
+      "consent": "Nainstalovat {name}?\n\nLicence modelu: {model}\nMusíte ji přijmout před jakýmkoli stahováním.",
+      "confirmUninstall": "Odebrat {name} a jeho prostředí?"
     }
   },
   "bluetooth": {
@@ -726,7 +736,7 @@
     "renameFile": "Přejmenovat soubor",
     "microphoneSettings": "Nastavení mikrofonu",
     "dropFilesHere": "Přetáhněte sem nebo",
-    "clickToBrowse": "klikněte pro přidání souborů MIDI",
+    "clickToBrowse": "klikněte pro přidání souborů MIDI nebo audio",
     "noMidiFilesDropped": "V přetažených souborech nebyly nalezeny žádné soubory MIDI.",
     "fileTooLarge": "Soubor je příliš velký ({size}). Limit: {max}",
     "duplicateFileWarning": "⚠️ Soubor již existuje - bude přepsán",
@@ -3125,5 +3135,87 @@
     "groupInputs": "MIDI vstupy",
     "groupOutputs": "MIDI výstupy",
     "groupOther": "Ostatní zařízení"
+  },
+  "transcription": {
+    "title": "Audio → MIDI",
+    "step": {
+      "file": "Vyberte zvukový soubor",
+      "engine": "Engine",
+      "quality": "Kvalita"
+    },
+    "file": {
+      "name": "Soubor",
+      "size": "Velikost",
+      "duration": "Délka"
+    },
+    "dropzone": {
+      "hint": "Přetáhněte zvukový soubor nebo",
+      "browse": "procházejte soubory",
+      "aria": "Vyberte zvukový soubor k převodu"
+    },
+    "engine": {
+      "auto": "Automaticky",
+      "autoHint": "Pro tento soubor se vybere nejlepší nainstalovaný engine.",
+      "licence": "Licence kódu: {code} · Licence modelu: {model}",
+      "nonCommercial": "Pouze nekomerční použití"
+    },
+    "quality": {
+      "fast": "Rychlá",
+      "balanced": "Vyvážená",
+      "maximum": "Maximální"
+    },
+    "options": {
+      "title": "Možnosti",
+      "preserveDynamics": "Zachovat dynamiku",
+      "preservePitchBends": "Zachovat pitch bendy",
+      "detectTempo": "Rozpoznat změny tempa",
+      "detectDrums": "Rozpoznat bicí",
+      "detectInstruments": "Rozpoznat nástroje",
+      "unsupported": "Tento engine to nepodporuje"
+    },
+    "status": {
+      "available": "Připraven",
+      "not_installed": "Nenainstalováno",
+      "installable": "Lze nainstalovat",
+      "license_restricted": "Vyžaduje souhlas s licencí",
+      "unsupported_platform": "Nepodporovaná platforma",
+      "broken": "Nainstalováno, ale nefunkční"
+    },
+    "stage": {
+      "preprocessing": "Příprava zvuku",
+      "transcribing": "Přepis",
+      "postprocessing": "Čištění not",
+      "generating_midi": "Generování MIDI",
+      "importing": "Přidávání do knihovny"
+    },
+    "progress": {
+      "title": "Převádí se {name}",
+      "working": "Probíhá…"
+    },
+    "result": {
+      "complete": "Přepis dokončen",
+      "failed": "Přepis se nezdařil",
+      "detected": "Rozpoznáno",
+      "warnings": "Upozornění",
+      "noWarnings": "Žádná upozornění",
+      "notes": "not",
+      "duplicate": "Tento soubor už v knihovně byl — byl použit stávající.",
+      "unknownInstrument": "Neznámý nástroj"
+    },
+    "actions": {
+      "start": "Převést",
+      "cancel": "Zrušit",
+      "openEditor": "Otevřít editor MIDI",
+      "useFile": "Použít soubor",
+      "newConversion": "Nový převod"
+    },
+    "unavailable": {
+      "title": "Převod Audio → MIDI není na tomto serveru dostupný.",
+      "ffmpeg": "FFmpeg není nainstalován.",
+      "noEngine": "Není nainstalován žádný engine pro přepis.",
+      "generic": "Funkce není připravena.",
+      "engines": "Známé enginy:",
+      "help": "Instalaci enginu popisuje docs/AUDIO_TRANSCRIPTION.md."
+    }
   }
 }

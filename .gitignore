@@ -74,3 +74,8 @@ public/lib/WebAudioFontPlayer.js
 
 # E2E run output (screenshots, throwaway server workspace: db, logs)
 tests/e2e/artifacts/
+
+# Python byte-code from the transcription runners (the venvs themselves live
+# under data/, which is already ignored).
+__pycache__/
+*.pyc

@@ -271,6 +271,16 @@
       "description": "Viser et synkronisert sangtekstpanel for karaoke-MIDI-filer",
       "enabled": "Sangtekst aktivert",
       "disabled": "Sangtekst deaktivert"
+    },
+    "transcription": {
+      "title": "Lyd → MIDI-motorer",
+      "refresh": "Oppdater",
+      "install": "Installer",
+      "uninstall": "Avinstaller",
+      "repair": "Reparer",
+      "installing": "Installerer…",
+      "consent": "Installere {name}?\n\nModellisens: {model}\nDu må godta den før noe lastes ned.",
+      "confirmUninstall": "Fjerne {name} og miljøet?"
     }
   },
   "bluetooth": {
@@ -726,7 +736,7 @@
     "renameFile": "Gi nytt navn til fil",
     "microphoneSettings": "Mikrofoninnstillinger",
     "dropFilesHere": "Dra og slipp eller",
-    "clickToBrowse": "klikk for å legge til MIDI-filer",
+    "clickToBrowse": "klikk for å legge til MIDI- eller lydfiler",
     "noMidiFilesDropped": "Ingen MIDI-filer funnet i de slupne filene.",
     "fileTooLarge": "Filen er for stor ({size}). Grense: {max}",
     "duplicateFileWarning": "⚠️ Filen eksisterer allerede - vil bli overskrevet",
@@ -3125,5 +3135,87 @@
     "groupInputs": "MIDI-innganger",
     "groupOutputs": "MIDI-utganger",
     "groupOther": "Andre enheter"
+  },
+  "transcription": {
+    "title": "Lyd → MIDI",
+    "step": {
+      "file": "Velg en lydfil",
+      "engine": "Motor",
+      "quality": "Kvalitet"
+    },
+    "file": {
+      "name": "Fil",
+      "size": "Størrelse",
+      "duration": "Varighet"
+    },
+    "dropzone": {
+      "hint": "Dra og slipp en lydfil, eller",
+      "browse": "bla gjennom filene dine",
+      "aria": "Velg en lydfil som skal konverteres"
+    },
+    "engine": {
+      "auto": "Automatisk",
+      "autoHint": "Den beste installerte motoren velges for denne filen.",
+      "licence": "Kodelisens: {code} · Modellisens: {model}",
+      "nonCommercial": "Kun ikke-kommersiell bruk"
+    },
+    "quality": {
+      "fast": "Rask",
+      "balanced": "Balansert",
+      "maximum": "Maksimal"
+    },
+    "options": {
+      "title": "Alternativer",
+      "preserveDynamics": "Behold dynamikken",
+      "preservePitchBends": "Behold pitch bends",
+      "detectTempo": "Oppdag tempoendringer",
+      "detectDrums": "Oppdag trommer",
+      "detectInstruments": "Oppdag instrumenter",
+      "unsupported": "Støttes ikke av denne motoren"
+    },
+    "status": {
+      "available": "Klar",
+      "not_installed": "Ikke installert",
+      "installable": "Kan installeres",
+      "license_restricted": "Krever godkjenning av lisensen",
+      "unsupported_platform": "Plattformen støttes ikke",
+      "broken": "Installert, men ubrukelig"
+    },
+    "stage": {
+      "preprocessing": "Forbereder lyden",
+      "transcribing": "Transkriberer",
+      "postprocessing": "Rydder opp i noter",
+      "generating_midi": "Genererer MIDI",
+      "importing": "Legger til i biblioteket"
+    },
+    "progress": {
+      "title": "Konverterer {name}",
+      "working": "Jobber…"
+    },
+    "result": {
+      "complete": "Transkripsjonen er ferdig",
+      "failed": "Transkripsjonen mislyktes",
+      "detected": "Oppdaget",
+      "warnings": "Advarsler",
+      "noWarnings": "Ingen advarsler",
+      "notes": "noter",
+      "duplicate": "Denne filen var allerede i biblioteket — den eksisterende ble gjenbrukt.",
+      "unknownInstrument": "Ukjent instrument"
+    },
+    "actions": {
+      "start": "Konverter",
+      "cancel": "Avbryt",
+      "openEditor": "Åpne MIDI-editoren",
+      "useFile": "Bruk filen",
+      "newConversion": "Ny konvertering"
+    },
+    "unavailable": {
+      "title": "Lyd → MIDI-konvertering er ikke tilgjengelig på denne serveren.",
+      "ffmpeg": "FFmpeg er ikke installert.",
+      "noEngine": "Ingen transkripsjonsmotor er installert.",
+      "generic": "Funksjonen er ikke klar.",
+      "engines": "Kjente motorer:",
+      "help": "Se docs/AUDIO_TRANSCRIPTION.md for å installere en motor."
+    }
   }
 }

@@ -15,6 +15,7 @@
  *  - SettingsTheme (addToggleStyles, selectTheme, applyTheme)
  *  - SettingsUpdate (triggerSystemUpdate, checkForUpdates, _showUpdateSuccess)
  *  - SettingsSerial (scanSerialPorts)
+ *  - SettingsTranscription (renderTranscriptionSection, bindTranscriptionSection)
  */
 
 class SettingsModal {
@@ -322,6 +323,9 @@ class SettingsModal {
     // Reset cancellation flag so update polling can resume if needed
     this._updateCancelled = false;
 
+    // Audio → MIDI engines: fetched on open, never blocking it.
+    this.bindTranscriptionSection?.();
+
     // Restore current values
     const darkModeToggle = this.modal.querySelector('#darkModeToggle');
     if (darkModeToggle) darkModeToggle.checked = this.settings.theme === 'dark';
@@ -415,6 +419,10 @@ class SettingsModal {
     if (this._escHandler) {
       document.removeEventListener('keydown', this._escHandler);
     }
+
+    // Release the transcription install listeners: the modal is rebuilt on
+    // every open, so keeping them would accumulate one set per open.
+    this.unbindTranscriptionSection?.();
 
     // Only cancel update polling if no update is in progress
     // (when an update is running, the confirm modal handles status display)
@@ -622,6 +630,9 @@ if (typeof SettingsHotspot !== 'undefined') {
 }
 if (typeof SettingsSF2 !== 'undefined') {
   Object.assign(SettingsModal.prototype, SettingsSF2);
+}
+if (typeof SettingsTranscription !== 'undefined') {
+  Object.assign(SettingsModal.prototype, SettingsTranscription);
 }
 
 // Export global

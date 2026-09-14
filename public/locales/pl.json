@@ -271,6 +271,16 @@
       "description": "Wyświetla zsynchronizowany panel tekstu dla plików MIDI karaoke",
       "enabled": "Tekst włączony",
       "disabled": "Tekst wyłączony"
+    },
+    "transcription": {
+      "title": "Silniki Audio → MIDI",
+      "refresh": "Odśwież",
+      "install": "Zainstaluj",
+      "uninstall": "Odinstaluj",
+      "repair": "Napraw",
+      "installing": "Instalowanie…",
+      "consent": "Zainstalować {name}?\n\nLicencja modelu: {model}\nMusisz ją zaakceptować przed pobraniem czegokolwiek.",
+      "confirmUninstall": "Usunąć {name} i jego środowisko?"
     }
   },
   "bluetooth": {
@@ -726,7 +736,7 @@
     "renameFile": "Zmień nazwę pliku",
     "microphoneSettings": "Ustawienia mikrofonu",
     "dropFilesHere": "Przeciągnij i upuść lub",
-    "clickToBrowse": "kliknij, aby dodać pliki MIDI",
+    "clickToBrowse": "kliknij, aby dodać pliki MIDI lub audio",
     "noMidiFilesDropped": "Nie znaleziono plików MIDI wśród upuszczonych plików.",
     "fileTooLarge": "Plik jest za duży ({size}). Limit: {max}",
     "duplicateFileWarning": "⚠️ Plik już istnieje - zostanie nadpisany",
@@ -3125,5 +3135,87 @@
     "groupInputs": "Wejścia MIDI",
     "groupOutputs": "Wyjścia MIDI",
     "groupOther": "Inne urządzenia"
+  },
+  "transcription": {
+    "title": "Audio → MIDI",
+    "step": {
+      "file": "Wybierz plik audio",
+      "engine": "Silnik",
+      "quality": "Jakość"
+    },
+    "file": {
+      "name": "Plik",
+      "size": "Rozmiar",
+      "duration": "Czas trwania"
+    },
+    "dropzone": {
+      "hint": "Przeciągnij i upuść plik audio albo",
+      "browse": "przeglądaj pliki",
+      "aria": "Wybierz plik audio do konwersji"
+    },
+    "engine": {
+      "auto": "Automatycznie",
+      "autoHint": "Do tego pliku wybierany jest najlepszy zainstalowany silnik.",
+      "licence": "Licencja kodu: {code} · Licencja modelu: {model}",
+      "nonCommercial": "Tylko użytek niekomercyjny"
+    },
+    "quality": {
+      "fast": "Szybka",
+      "balanced": "Zrównoważona",
+      "maximum": "Maksymalna"
+    },
+    "options": {
+      "title": "Opcje",
+      "preserveDynamics": "Zachowaj dynamikę",
+      "preservePitchBends": "Zachowaj pitch bend",
+      "detectTempo": "Wykrywaj zmiany tempa",
+      "detectDrums": "Wykrywaj perkusję",
+      "detectInstruments": "Wykrywaj instrumenty",
+      "unsupported": "Nieobsługiwane przez ten silnik"
+    },
+    "status": {
+      "available": "Gotowy",
+      "not_installed": "Niezainstalowany",
+      "installable": "Możliwy do zainstalowania",
+      "license_restricted": "Wymagana akceptacja licencji",
+      "unsupported_platform": "Nieobsługiwana platforma",
+      "broken": "Zainstalowany, ale nie działa"
+    },
+    "stage": {
+      "preprocessing": "Przygotowanie audio",
+      "transcribing": "Transkrypcja",
+      "postprocessing": "Czyszczenie nut",
+      "generating_midi": "Generowanie MIDI",
+      "importing": "Dodawanie do biblioteki"
+    },
+    "progress": {
+      "title": "Konwersja {name}",
+      "working": "W toku…"
+    },
+    "result": {
+      "complete": "Transkrypcja zakończona",
+      "failed": "Transkrypcja nie powiodła się",
+      "detected": "Wykryto",
+      "warnings": "Ostrzeżenia",
+      "noWarnings": "Brak ostrzeżeń",
+      "notes": "nut",
+      "duplicate": "Ten plik był już w bibliotece — użyto istniejącego.",
+      "unknownInstrument": "Nieznany instrument"
+    },
+    "actions": {
+      "start": "Konwertuj",
+      "cancel": "Anuluj",
+      "openEditor": "Otwórz edytor MIDI",
+      "useFile": "Użyj pliku",
+      "newConversion": "Nowa konwersja"
+    },
+    "unavailable": {
+      "title": "Konwersja Audio → MIDI nie jest dostępna na tym serwerze.",
+      "ffmpeg": "FFmpeg nie jest zainstalowany.",
+      "noEngine": "Nie zainstalowano żadnego silnika transkrypcji.",
+      "generic": "Funkcja nie jest gotowa.",
+      "engines": "Znane silniki:",
+      "help": "Zobacz docs/AUDIO_TRANSCRIPTION.md, aby zainstalować silnik."
+    }
   }
 }

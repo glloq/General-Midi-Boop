@@ -271,6 +271,16 @@
       "description": "Montras sinkronigitan kantotekstan panelon por karaokeaj MIDI-dosieroj",
       "enabled": "Kantoteksto ŝaltita",
       "disabled": "Kantoteksto malŝaltita"
+    },
+    "transcription": {
+      "title": "Motoroj Sono → MIDI",
+      "refresh": "Aktualigi",
+      "install": "Instali",
+      "uninstall": "Malinstali",
+      "repair": "Ripari",
+      "installing": "Instalado…",
+      "consent": "Ĉu instali {name}?\n\nPermesilo de la modelo: {model}\nVi devas akcepti ĝin antaŭ ol io estas elŝutata.",
+      "confirmUninstall": "Ĉu forigi {name} kaj ĝian medion?"
     }
   },
   "bluetooth": {
@@ -726,7 +736,7 @@
     "renameFile": "Renomi dosieron",
     "microphoneSettings": "Mikrofonaj agordoj",
     "dropFilesHere": "Trenu kaj demetu aŭ",
-    "clickToBrowse": "alklaku por aldoni MIDI-dosierojn",
+    "clickToBrowse": "alklaku por aldoni MIDI- aŭ sondosierojn",
     "noMidiFilesDropped": "Neniuj MIDI-dosieroj troviĝis en la demetitaj dosieroj.",
     "fileTooLarge": "Dosiero tro granda ({size}). Limo: {max}",
     "duplicateFileWarning": "⚠️ Dosiero jam ekzistas - estos anstataŭigita",
@@ -3125,5 +3135,87 @@
     "groupInputs": "MIDI-enigoj",
     "groupOutputs": "MIDI-eligoj",
     "groupOther": "Aliaj aparatoj"
+  },
+  "transcription": {
+    "title": "Sono → MIDI",
+    "step": {
+      "file": "Elektu sondosieron",
+      "engine": "Motoro",
+      "quality": "Kvalito"
+    },
+    "file": {
+      "name": "Dosiero",
+      "size": "Grando",
+      "duration": "Daŭro"
+    },
+    "dropzone": {
+      "hint": "Ŝovu kaj demetu sondosieron, aŭ",
+      "browse": "foliumu viajn dosierojn",
+      "aria": "Elektu sondosieron por konverti"
+    },
+    "engine": {
+      "auto": "Aŭtomata",
+      "autoHint": "La plej bona instalita motoro estas elektita por ĉi tiu dosiero.",
+      "licence": "Permesilo de kodo: {code} · Permesilo de modelo: {model}",
+      "nonCommercial": "Nur nekomerca uzo"
+    },
+    "quality": {
+      "fast": "Rapida",
+      "balanced": "Ekvilibra",
+      "maximum": "Maksimuma"
+    },
+    "options": {
+      "title": "Agordoj",
+      "preserveDynamics": "Konservi la dinamikon",
+      "preservePitchBends": "Konservi la tonfleksojn",
+      "detectTempo": "Detekti tempoŝanĝojn",
+      "detectDrums": "Detekti tamburojn",
+      "detectInstruments": "Detekti instrumentojn",
+      "unsupported": "Ne subtenata de ĉi tiu motoro"
+    },
+    "status": {
+      "available": "Preta",
+      "not_installed": "Ne instalita",
+      "installable": "Instalebla",
+      "license_restricted": "Necesas akcepti la permesilon",
+      "unsupported_platform": "Nesubtenata platformo",
+      "broken": "Instalita sed neuzebla"
+    },
+    "stage": {
+      "preprocessing": "Preparado de la sono",
+      "transcribing": "Transskribado",
+      "postprocessing": "Purigado de la notoj",
+      "generating_midi": "Generado de MIDI",
+      "importing": "Aldonado al la biblioteko"
+    },
+    "progress": {
+      "title": "Konvertado de {name}",
+      "working": "Laborante…"
+    },
+    "result": {
+      "complete": "Transskribo finita",
+      "failed": "Transskribo malsukcesis",
+      "detected": "Detektita",
+      "warnings": "Avertoj",
+      "noWarnings": "Neniu averto",
+      "notes": "notoj",
+      "duplicate": "Ĉi tiu dosiero jam estis en la biblioteko — la ekzistanta estis reuzata.",
+      "unknownInstrument": "Nekonata instrumento"
+    },
+    "actions": {
+      "start": "Konverti",
+      "cancel": "Nuligi",
+      "openEditor": "Malfermi la MIDI-redaktilon",
+      "useFile": "Uzi la dosieron",
+      "newConversion": "Nova konverto"
+    },
+    "unavailable": {
+      "title": "Konverto Sono → MIDI ne disponeblas sur ĉi tiu servilo.",
+      "ffmpeg": "FFmpeg ne estas instalita.",
+      "noEngine": "Neniu transskriba motoro estas instalita.",
+      "generic": "La funkcio ne pretas.",
+      "engines": "Konataj motoroj:",
+      "help": "Vidu docs/AUDIO_TRANSCRIPTION.md por instali motoron."
+    }
   }
 }

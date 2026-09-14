@@ -1,0 +1,42 @@
+# Basic Pitch — pinned environment for Général Midi Boop (§35).
+#
+# Every version is exact. An engine that silently changes version changes the
+# transcriptions it produces, and "it worked last month" is not a bug report
+# anyone can act on.
+#
+# Install into an ISOLATED environment, never the system Python:
+#
+#   python3 -m venv data/transcription/venvs/basic-pitch
+#   data/transcription/venvs/basic-pitch/bin/pip install --upgrade pip
+#   data/transcription/venvs/basic-pitch/bin/pip install \
+#       -r src/transcription/python/basic-pitch/requirements.txt
+#
+# On a Raspberry Pi (aarch64) TensorFlow is the long pole: expect a few
+# hundred MB and several minutes. The model weights ship inside the
+# basic-pitch package — nothing is downloaded at transcription time, and
+# nothing is committed to this repository.
+#
+# PYTHON VERSION: TensorFlow 2.15 publishes wheels for CPython 3.9, 3.10 and
+# 3.11 only. A newer interpreter has no wheel and pip would fail late, after
+# a long download, with a message about no matching distribution. The
+# installer checks the interpreter BEFORE creating the environment
+# (`_findSystemPython` in BasicPitchBackend.js) so the refusal is immediate
+# and says what to do.
+#
+# One TensorFlow line, deliberately: `tensorflow` publishes
+# `manylinux_2_17_aarch64` wheels, so the Pi is served by the same pin as
+# everything else. (`tensorflow-aarch64` on PyPI is an unrelated package
+# stuck at 1.2 — it is not the ARM build of TensorFlow.)
+#
+# Licences: basic-pitch is Apache-2.0 (code AND weights); TensorFlow is
+# Apache-2.0; librosa is ISC. See docs/AUDIO_TRANSCRIPTION.md.
+#
+# Verified as a resolvable set — basic-pitch 0.4.0 requires
+# `tensorflow<2.15.1` and `resampy<0.4.3`, so those two are pinned one
+# release below the bound, not at it.
+
+basic-pitch==0.4.0
+tensorflow==2.15.0
+librosa==0.10.2.post1
+numpy==1.26.4
+resampy==0.4.2

@@ -59,6 +59,10 @@ import { EventLoopMonitor } from '../infrastructure/monitoring/EventLoopMonitor.
 import { CapabilityResolver } from '../midi/instrument/CapabilityResolver.js';
 import DescriptorService from '../midi/instrument/DescriptorService.js';
 import { SuggestionCacheService } from '../midi/adaptation/SuggestionCacheService.js';
+import TranscriptionBackendRegistry from '../transcription/TranscriptionBackendRegistry.js';
+import TranscriptionJobManager from '../transcription/TranscriptionJobManager.js';
+import AudioTranscriptionService from '../transcription/AudioTranscriptionService.js';
+import BackendInstaller from '../transcription/BackendInstaller.js';
 
 /**
  * Application root. One instance per process — see `server.js`.
@@ -97,6 +101,10 @@ class Application {
     this.instrumentLightManager = null;
     this.midiClockGenerator = null;
     this.autoAssigner = null;
+    this.transcriptionBackendRegistry = null;
+    this.transcriptionJobManager = null;
+    this.audioTranscriptionService = null;
+    this.transcriptionBackendInstaller = null;
     this.wsServer = null;
     this.httpServer = null;
     this.commandHandler = null;
@@ -441,6 +449,37 @@ class Application {
         })
       );
 
+      // Audio -> MIDI transcription (optional). The registry itself has no
+      // native dependency and always constructs; the ENGINES are optional and
+      // installed separately, so an empty registry is the normal state of a
+      // fresh install. Wrapped anyway: a failure here must degrade the
+      // feature, never stop the MIDI server from booting (§44).
+      if (this.config.get('transcription.enabled', true)) {
+        try {
+          // Registry first: the service resolves it lazily, but the job
+          // manager's settings and the service's own construction both read
+          // the resolved transcription config, so it is computed once here.
+          this._registerService(
+            'transcriptionBackendRegistry',
+            new TranscriptionBackendRegistry(deps)
+          );
+          await this.transcriptionBackendRegistry.loadBuiltinBackends();
+          // The facade, not a hand-built object: the job manager broadcasts
+          // job progress to the browser through `wsServer`, which registers
+          // further down. A literal freezes what exists now, and every
+          // broadcast then goes nowhere — the modal sits on its first stage
+          // while the job runs to completion.
+          this._registerService('transcriptionJobManager', new TranscriptionJobManager(deps));
+          this._registerService('audioTranscriptionService', new AudioTranscriptionService(deps));
+          this._registerService('transcriptionBackendInstaller', new BackendInstaller(deps));
+        } catch (error) {
+          this._capabilityErrors.transcription = error.message;
+          this.logger.warn(`Audio transcription not available: ${error.message}`);
+        }
+      } else {
+        this.logger.info('Audio transcription disabled by configuration');
+      }
+
       // Initialize API
       this._registerService('commandHandler', new CommandHandler(deps));
       this._registerService('httpServer', new HttpServer(deps));
@@ -602,6 +641,18 @@ class Application {
       this.logger.info(`=== GeneralMidiBoop ${this.version} Running ===`);
       this.logger.info(`HTTP/WebSocket server: http://localhost:${this.config.server.port}`);
 
+      // Sweep transcription scratch directories abandoned by a previous run
+      // (a crash, a power cut). Best-effort: a full temp disk must never stop
+      // the MIDI server from serving (§21).
+      try {
+        await this.audioTranscriptionService?.cleanupStaleWorkspaces();
+        // One probe at boot so the SYNCHRONOUS health snapshot below has
+        // something truthful to report; /api/health must never spawn ffprobe.
+        await this.audioTranscriptionService?.warmAvailability();
+      } catch (error) {
+        this.logger.warn(`Transcription scratch sweep failed (non-critical): ${error.message}`);
+      }
+
       // Auto-reanalyze files missing channel data (needed for GM instrument filters)
       try {
         const missingCount = this.database.countFilesWithoutChannels();
@@ -669,6 +720,16 @@ class Application {
     await step('lightingManager', () => this.lightingManager?.shutdown?.());
     await step('instrumentLightManager', () => this.instrumentLightManager?.shutdown?.());
     await step('autoAssigner', () => this.autoAssigner?.destroy());
+    // An install in flight holds a pip subprocess; stop it before the
+    // registry it would write into goes away.
+    await step('transcriptionBackendInstaller', () => this.transcriptionBackendInstaller?.cancel());
+    // Jobs first: a running transcription holds a backend and a subprocess,
+    // and cancelling it is what stops FFmpeg/Python (§18).
+    await step('transcriptionJobManager', () => this.transcriptionJobManager?.destroy());
+    await step('transcriptionProcesses', () =>
+      this.audioTranscriptionService?.processRunner?.killAll()
+    );
+    await step('transcriptionBackendRegistry', () => this.transcriptionBackendRegistry?.destroy());
     await step('compensationService', () => this.compensationService?.destroy());
     await step('capabilityResolver', () => this.capabilityResolver?.destroy());
     await step('eventHandlers', () => this.removeEventHandlers());
@@ -727,6 +788,29 @@ class Application {
       }
       return errored(key) ? { status: 'failed', detail: errored(key) } : { status: 'disabled' };
     };
+    /**
+     * Health of the audio → MIDI feature, from CACHED state only — no probe:
+     * /api/health is polled by monitoring and must never spawn an ffprobe.
+     * @returns {{status: string, detail?: string}}
+     */
+    const transcriptionStatus = () => {
+      if (!this.audioTranscriptionService) {
+        const error = errored('transcription');
+        return error
+          ? { status: 'failed', detail: error }
+          : { status: 'disabled', detail: 'Audio transcription is not enabled' };
+      }
+      try {
+        const snapshot = this.audioTranscriptionService.getCapabilitySnapshot();
+        return snapshot.detail
+          ? { status: snapshot.status, detail: snapshot.detail }
+          : { status: snapshot.status };
+      } catch (error) {
+        // Never let an optional feature take /api/health down with it.
+        return { status: 'failed', detail: error.message };
+      }
+    };
+
     /** Never let a misbehaving transport take /api/health down with it. */
     const runtimeStatus = (service) => {
       try {
@@ -804,7 +888,13 @@ class Application {
           'RTP-MIDI is a simplified AppleMIDI implementation (no IN/OK, CK sync or journal)'
       }),
       serial,
-      lighting: optional(this.lightingManager, 'lighting')
+      lighting: optional(this.lightingManager, 'lighting'),
+      // audioTranscription — optional by construction. "No engine installed"
+      // is the normal state of a fresh install, so it reports `disabled`
+      // (which does NOT degrade `overall`); only an engine that is installed
+      // and broken, or missing FFmpeg while an engine is ready, degrades it
+      // (§23/§44).
+      audioTranscription: transcriptionStatus()
     };
 
     // Overall: failed if a core capability failed, else degraded if any

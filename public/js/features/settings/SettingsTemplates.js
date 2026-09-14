@@ -353,6 +353,9 @@
                         ${tgl('midiClockToggle', this.settings.midiClockEnabled)}
                     </div>
                 </div>
+
+                <!-- Audio → MIDI : moteurs installés, statut et licences (§33) -->
+                ${this.renderTranscriptionSection ? this.renderTranscriptionSection() : ''}
             </div>
 
             <!-- ═══════════════════════════════════════ -->

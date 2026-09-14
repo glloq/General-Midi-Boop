@@ -271,6 +271,16 @@
       "description": "Menampilkan panel lirik tersinkron untuk file MIDI karaoke",
       "enabled": "Lirik aktif",
       "disabled": "Lirik nonaktif"
+    },
+    "transcription": {
+      "title": "Mesin Audio → MIDI",
+      "refresh": "Segarkan",
+      "install": "Pasang",
+      "uninstall": "Copot",
+      "repair": "Perbaiki",
+      "installing": "Memasang…",
+      "consent": "Pasang {name}?\n\nLisensi model: {model}\nAnda harus menyetujuinya sebelum ada yang diunduh.",
+      "confirmUninstall": "Hapus {name} dan lingkungannya?"
     }
   },
   "bluetooth": {
@@ -726,7 +736,7 @@
     "renameFile": "Ganti nama file",
     "microphoneSettings": "Pengaturan mikrofon",
     "dropFilesHere": "Seret dan lepas atau",
-    "clickToBrowse": "klik untuk menambah file MIDI",
+    "clickToBrowse": "klik untuk menambah file MIDI atau audio",
     "noMidiFilesDropped": "Tidak ada file MIDI ditemukan dalam file yang dilepas.",
     "fileTooLarge": "File terlalu besar ({size}). Batas: {max}",
     "duplicateFileWarning": "⚠️ File sudah ada - akan ditimpa",
@@ -3125,5 +3135,87 @@
     "groupInputs": "Input MIDI",
     "groupOutputs": "Output MIDI",
     "groupOther": "Perangkat lain"
+  },
+  "transcription": {
+    "title": "Audio → MIDI",
+    "step": {
+      "file": "Pilih berkas audio",
+      "engine": "Mesin",
+      "quality": "Kualitas"
+    },
+    "file": {
+      "name": "Berkas",
+      "size": "Ukuran",
+      "duration": "Durasi"
+    },
+    "dropzone": {
+      "hint": "Seret dan lepas berkas audio, atau",
+      "browse": "telusuri berkas Anda",
+      "aria": "Pilih berkas audio untuk diubah"
+    },
+    "engine": {
+      "auto": "Otomatis",
+      "autoHint": "Mesin terpasang terbaik dipilih untuk berkas ini.",
+      "licence": "Lisensi kode: {code} · Lisensi model: {model}",
+      "nonCommercial": "Hanya untuk penggunaan non-komersial"
+    },
+    "quality": {
+      "fast": "Cepat",
+      "balanced": "Seimbang",
+      "maximum": "Maksimal"
+    },
+    "options": {
+      "title": "Opsi",
+      "preserveDynamics": "Pertahankan dinamika",
+      "preservePitchBends": "Pertahankan pitch bend",
+      "detectTempo": "Deteksi perubahan tempo",
+      "detectDrums": "Deteksi drum",
+      "detectInstruments": "Deteksi instrumen",
+      "unsupported": "Tidak didukung oleh mesin ini"
+    },
+    "status": {
+      "available": "Siap",
+      "not_installed": "Belum terpasang",
+      "installable": "Dapat dipasang",
+      "license_restricted": "Perlu menyetujui lisensi",
+      "unsupported_platform": "Platform tidak didukung",
+      "broken": "Terpasang tetapi tidak dapat dipakai"
+    },
+    "stage": {
+      "preprocessing": "Menyiapkan audio",
+      "transcribing": "Mentranskripsi",
+      "postprocessing": "Membersihkan not",
+      "generating_midi": "Membuat MIDI",
+      "importing": "Menambahkan ke pustaka"
+    },
+    "progress": {
+      "title": "Mengubah {name}",
+      "working": "Sedang berjalan…"
+    },
+    "result": {
+      "complete": "Transkripsi selesai",
+      "failed": "Transkripsi gagal",
+      "detected": "Terdeteksi",
+      "warnings": "Peringatan",
+      "noWarnings": "Tidak ada peringatan",
+      "notes": "not",
+      "duplicate": "Berkas ini sudah ada di pustaka — yang lama digunakan kembali.",
+      "unknownInstrument": "Instrumen tidak dikenal"
+    },
+    "actions": {
+      "start": "Ubah",
+      "cancel": "Batal",
+      "openEditor": "Buka editor MIDI",
+      "useFile": "Gunakan berkas",
+      "newConversion": "Konversi baru"
+    },
+    "unavailable": {
+      "title": "Konversi Audio → MIDI tidak tersedia di server ini.",
+      "ffmpeg": "FFmpeg belum terpasang.",
+      "noEngine": "Tidak ada mesin transkripsi yang terpasang.",
+      "generic": "Fitur belum siap.",
+      "engines": "Mesin yang dikenal:",
+      "help": "Lihat docs/AUDIO_TRANSCRIPTION.md untuk memasang mesin."
+    }
   }
 }

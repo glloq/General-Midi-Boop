@@ -271,6 +271,16 @@
       "description": "Nagpapakita ng naka-sync na lyrics panel para sa karaoke MIDI files",
       "enabled": "Naka-enable ang lyrics",
       "disabled": "Naka-disable ang lyrics"
+    },
+    "transcription": {
+      "title": "Mga Audio → MIDI engine",
+      "refresh": "I-refresh",
+      "install": "I-install",
+      "uninstall": "I-uninstall",
+      "repair": "Ayusin",
+      "installing": "Ini-install…",
+      "consent": "I-install ang {name}?\n\nLisensya ng modelo: {model}\nKailangan mo itong tanggapin bago may ma-download.",
+      "confirmUninstall": "Alisin ang {name} at ang environment nito?"
     }
   },
   "bluetooth": {
@@ -726,7 +736,7 @@
     "renameFile": "Palitan ang pangalan ng file",
     "microphoneSettings": "Mga setting ng mikropono",
     "dropFilesHere": "I-drag and drop o",
-    "clickToBrowse": "i-click para magdagdag ng MIDI files",
+    "clickToBrowse": "i-click para magdagdag ng MIDI o audio files",
     "noMidiFilesDropped": "Walang MIDI files na nakita sa mga na-drop na file.",
     "fileTooLarge": "Masyadong malaki ang file ({size}). Limitasyon: {max}",
     "duplicateFileWarning": "⚠️ Mayroon nang file - mao-overwrite",
@@ -3125,5 +3135,87 @@
     "groupInputs": "Mga MIDI input",
     "groupOutputs": "Mga MIDI output",
     "groupOther": "Iba pang device"
+  },
+  "transcription": {
+    "title": "Audio → MIDI",
+    "step": {
+      "file": "Pumili ng audio file",
+      "engine": "Engine",
+      "quality": "Kalidad"
+    },
+    "file": {
+      "name": "File",
+      "size": "Laki",
+      "duration": "Tagal"
+    },
+    "dropzone": {
+      "hint": "I-drag at i-drop ang audio file, o",
+      "browse": "maghanap sa iyong mga file",
+      "aria": "Pumili ng audio file na ico-convert"
+    },
+    "engine": {
+      "auto": "Awtomatiko",
+      "autoHint": "Pipiliin ang pinakamahusay na naka-install na engine para sa file na ito.",
+      "licence": "Lisensya ng code: {code} · Lisensya ng modelo: {model}",
+      "nonCommercial": "Para lamang sa hindi komersyal na paggamit"
+    },
+    "quality": {
+      "fast": "Mabilis",
+      "balanced": "Balanse",
+      "maximum": "Pinakamataas"
+    },
+    "options": {
+      "title": "Mga opsyon",
+      "preserveDynamics": "Panatilihin ang dinamika",
+      "preservePitchBends": "Panatilihin ang pitch bends",
+      "detectTempo": "Tukuyin ang pagbabago ng tempo",
+      "detectDrums": "Tukuyin ang drums",
+      "detectInstruments": "Tukuyin ang mga instrumento",
+      "unsupported": "Hindi suportado ng engine na ito"
+    },
+    "status": {
+      "available": "Handa",
+      "not_installed": "Hindi naka-install",
+      "installable": "Puwedeng i-install",
+      "license_restricted": "Kailangang tanggapin ang lisensya",
+      "unsupported_platform": "Hindi suportadong platform",
+      "broken": "Naka-install ngunit hindi magamit"
+    },
+    "stage": {
+      "preprocessing": "Inihahanda ang audio",
+      "transcribing": "Nagta-transcribe",
+      "postprocessing": "Nililinis ang mga nota",
+      "generating_midi": "Gumagawa ng MIDI",
+      "importing": "Idinadagdag sa library"
+    },
+    "progress": {
+      "title": "Kino-convert ang {name}",
+      "working": "Ginagawa…"
+    },
+    "result": {
+      "complete": "Tapos na ang transcription",
+      "failed": "Nabigo ang transcription",
+      "detected": "Natukoy",
+      "warnings": "Mga babala",
+      "noWarnings": "Walang babala",
+      "notes": "nota",
+      "duplicate": "Nasa library na ang file na ito — ginamit ang umiiral na kopya.",
+      "unknownInstrument": "Hindi kilalang instrumento"
+    },
+    "actions": {
+      "start": "I-convert",
+      "cancel": "Kanselahin",
+      "openEditor": "Buksan ang MIDI editor",
+      "useFile": "Gamitin ang file",
+      "newConversion": "Bagong conversion"
+    },
+    "unavailable": {
+      "title": "Hindi available ang Audio → MIDI na conversion sa server na ito.",
+      "ffmpeg": "Hindi naka-install ang FFmpeg.",
+      "noEngine": "Walang naka-install na transcription engine.",
+      "generic": "Hindi pa handa ang feature.",
+      "engines": "Mga kilalang engine:",
+      "help": "Tingnan ang docs/AUDIO_TRANSCRIPTION.md para mag-install ng engine."
+    }
   }
 }

@@ -271,6 +271,16 @@
       "description": "カラオケ MIDI ファイル用に同期歌詞パネルを表示",
       "enabled": "歌詞を有効化",
       "disabled": "歌詞を無効化"
+    },
+    "transcription": {
+      "title": "オーディオ → MIDI エンジン",
+      "refresh": "更新",
+      "install": "インストール",
+      "uninstall": "アンインストール",
+      "repair": "修復",
+      "installing": "インストール中…",
+      "consent": "{name} をインストールしますか？\n\nモデルのライセンス: {model}\nダウンロード前に同意が必要です。",
+      "confirmUninstall": "{name} とその環境を削除しますか？"
     }
   },
   "bluetooth": {
@@ -726,7 +736,7 @@
     "renameFile": "ファイル名を変更",
     "microphoneSettings": "マイク設定",
     "dropFilesHere": "ドラッグ＆ドロップまたは",
-    "clickToBrowse": "クリックして MIDI ファイルを追加",
+    "clickToBrowse": "クリックして MIDI またはオーディオファイルを追加",
     "noMidiFilesDropped": "ドロップされたファイルに MIDI ファイルが見つかりません。",
     "fileTooLarge": "ファイルが大きすぎます ({size})。制限: {max}",
     "duplicateFileWarning": "⚠️ ファイルは既に存在します - 上書きされます",
@@ -3125,5 +3135,87 @@
     "groupInputs": "MIDI 入力",
     "groupOutputs": "MIDI 出力",
     "groupOther": "その他のデバイス"
+  },
+  "transcription": {
+    "title": "オーディオ → MIDI",
+    "step": {
+      "file": "オーディオファイルを選択",
+      "engine": "エンジン",
+      "quality": "品質"
+    },
+    "file": {
+      "name": "ファイル",
+      "size": "サイズ",
+      "duration": "長さ"
+    },
+    "dropzone": {
+      "hint": "オーディオファイルをドラッグ＆ドロップ、または",
+      "browse": "ファイルを選択",
+      "aria": "変換するオーディオファイルを選択"
+    },
+    "engine": {
+      "auto": "自動",
+      "autoHint": "このファイルに最適なインストール済みエンジンが選ばれます。",
+      "licence": "コードのライセンス: {code} · モデルのライセンス: {model}",
+      "nonCommercial": "非商用利用のみ"
+    },
+    "quality": {
+      "fast": "高速",
+      "balanced": "バランス",
+      "maximum": "最高"
+    },
+    "options": {
+      "title": "オプション",
+      "preserveDynamics": "強弱を保持",
+      "preservePitchBends": "ピッチベンドを保持",
+      "detectTempo": "テンポ変化を検出",
+      "detectDrums": "ドラムを検出",
+      "detectInstruments": "楽器を検出",
+      "unsupported": "このエンジンでは非対応"
+    },
+    "status": {
+      "available": "使用可能",
+      "not_installed": "未インストール",
+      "installable": "インストール可能",
+      "license_restricted": "ライセンスの同意が必要",
+      "unsupported_platform": "非対応のプラットフォーム",
+      "broken": "インストール済みだが使用不可"
+    },
+    "stage": {
+      "preprocessing": "オーディオを準備中",
+      "transcribing": "採譜中",
+      "postprocessing": "ノートを整理中",
+      "generating_midi": "MIDI を生成中",
+      "importing": "ライブラリに追加中"
+    },
+    "progress": {
+      "title": "{name} を変換中",
+      "working": "処理中…"
+    },
+    "result": {
+      "complete": "採譜が完了しました",
+      "failed": "採譜に失敗しました",
+      "detected": "検出結果",
+      "warnings": "警告",
+      "noWarnings": "警告はありません",
+      "notes": "ノート",
+      "duplicate": "このファイルはすでにライブラリにあります — 既存のものを再利用しました。",
+      "unknownInstrument": "不明な楽器"
+    },
+    "actions": {
+      "start": "変換",
+      "cancel": "キャンセル",
+      "openEditor": "MIDI エディターを開く",
+      "useFile": "このファイルを使う",
+      "newConversion": "新しい変換"
+    },
+    "unavailable": {
+      "title": "このサーバーではオーディオ → MIDI 変換を利用できません。",
+      "ffmpeg": "FFmpeg がインストールされていません。",
+      "noEngine": "採譜エンジンがインストールされていません。",
+      "generic": "この機能は準備できていません。",
+      "engines": "既知のエンジン:",
+      "help": "エンジンのインストールは docs/AUDIO_TRANSCRIPTION.md を参照してください。"
+    }
   }
 }
