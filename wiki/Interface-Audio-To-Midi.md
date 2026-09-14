@@ -16,8 +16,10 @@ Two things are needed, and neither ships with GMB:
 
 | Requirement | How to get it | Without it |
 |-------------|---------------|------------|
-| **FFmpeg** | `sudo apt install ffmpeg` | Jobs fail with `FFMPEG_MISSING` |
+| **FFmpeg** | Already installed by `scripts/Install.sh` | Jobs fail with `FFMPEG_MISSING` |
 | **A transcription engine** | Settings → *Audio → MIDI engines* → **Install** | The modal explains what is missing and offers nothing that cannot work |
+
+FFmpeg ships with the normal installation, so on a standard deployment the engine is the only thing left to install — one button, no terminal. On an installation that predates it, re-running `./scripts/Install.sh` adds it.
 
 One engine is supported today: **Basic Pitch** (Spotify, Apache-2.0 for both code and model weights). It is installed into its own Python environment under `data/transcription/venvs/`, never into the system Python, and it needs CPython 3.9–3.11 — the installer checks the interpreter first and refuses immediately rather than failing after a long download.
 
@@ -93,7 +95,7 @@ On a Pi, note that once the engine has finished, GMB post-processes and encodes 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | The drop zone only mentions MIDI | No engine ready on this server | Settings → *Audio → MIDI engines* → Install |
-| `FFMPEG_MISSING` | FFmpeg absent from `PATH` | `sudo apt install ffmpeg` |
+| `FFMPEG_MISSING` | An installation that predates it, or a manual setup | Re-run `./scripts/Install.sh` |
 | "This engine needs Python 3.9 – 3.11" | The interpreter has no TensorFlow wheel | Install a supported Python and make it `python3` |
 | Install fails on a TLS or DNS error | `pip` cannot reach PyPI | Export the proxy/CA variables to the GMB process, not only to your shell |
 | `OUT_OF_MEMORY` | The board is too small | Shorter file, Fast quality, or a bigger Pi |

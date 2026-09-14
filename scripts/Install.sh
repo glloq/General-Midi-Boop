@@ -87,6 +87,11 @@ if [ "$OS" == "linux" ]; then
     # Native-deps toolchain (build-essential, python3) is required by
     # better-sqlite3, serialport, easymidi, node-ble. libasound2-dev
     # and libbluetooth-dev are required at compile time.
+    #
+    # ffmpeg is what the audio → MIDI feature decodes with. It is installed
+    # here, once, with the rest — rather than asked of the operator later —
+    # so that enabling a transcription engine from the Settings panel is the
+    # only step left. It brings ffprobe with it, which GMB needs just as much.
     sudo apt-get install -y \
       libasound2-dev \
       bluetooth \
@@ -97,6 +102,7 @@ if [ "$OS" == "linux" ]; then
       curl \
       python3 \
       sqlite3 \
+      ffmpeg \
       > /dev/null 2>&1
 
     print_success "System packages installed"
