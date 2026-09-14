@@ -272,9 +272,6 @@
       "enabled": "가사 활성화",
       "disabled": "가사 비활성화"
     },
-    "transcriptionButton": {
-      "title": "오디오 → MIDI"
-    },
     "transcription": {
       "title": "오디오 → MIDI 엔진",
       "refresh": "새로 고침",
@@ -739,7 +736,7 @@
     "renameFile": "파일 이름 변경",
     "microphoneSettings": "마이크 설정",
     "dropFilesHere": "드래그 앤 드롭 또는",
-    "clickToBrowse": "클릭하여 MIDI 파일 추가",
+    "clickToBrowse": "클릭하여 MIDI 또는 오디오 파일 추가",
     "noMidiFilesDropped": "드롭한 파일에서 MIDI 파일을 찾을 수 없습니다.",
     "fileTooLarge": "파일이 너무 큽니다 ({size}). 제한: {max}",
     "duplicateFileWarning": "⚠️ 파일이 이미 존재합니다 - 덮어쓰기됩니다",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "오디오 → MIDI",
-    "headerButton": "오디오를 MIDI로 변환",
     "step": {
       "file": "오디오 파일 선택",
       "engine": "엔진",

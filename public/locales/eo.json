@@ -272,9 +272,6 @@
       "enabled": "Kantoteksto ŝaltita",
       "disabled": "Kantoteksto malŝaltita"
     },
-    "transcriptionButton": {
-      "title": "Sono → MIDI"
-    },
     "transcription": {
       "title": "Motoroj Sono → MIDI",
       "refresh": "Aktualigi",
@@ -739,7 +736,7 @@
     "renameFile": "Renomi dosieron",
     "microphoneSettings": "Mikrofonaj agordoj",
     "dropFilesHere": "Trenu kaj demetu aŭ",
-    "clickToBrowse": "alklaku por aldoni MIDI-dosierojn",
+    "clickToBrowse": "alklaku por aldoni MIDI- aŭ sondosierojn",
     "noMidiFilesDropped": "Neniuj MIDI-dosieroj troviĝis en la demetitaj dosieroj.",
     "fileTooLarge": "Dosiero tro granda ({size}). Limo: {max}",
     "duplicateFileWarning": "⚠️ Dosiero jam ekzistas - estos anstataŭigita",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Sono → MIDI",
-    "headerButton": "Konverti sonon al MIDI",
     "step": {
       "file": "Elektu sondosieron",
       "engine": "Motoro",

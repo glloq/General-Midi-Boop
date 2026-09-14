@@ -272,9 +272,6 @@
       "enabled": "কথা সক্ষম",
       "disabled": "কথা নিষ্ক্রিয়"
     },
-    "transcriptionButton": {
-      "title": "অডিও → MIDI"
-    },
     "transcription": {
       "title": "অডিও → MIDI ইঞ্জিন",
       "refresh": "রিফ্রেশ",
@@ -739,7 +736,7 @@
     "renameFile": "ফাইলের নাম পরিবর্তন",
     "microphoneSettings": "মাইক্রোফোন সেটিংস",
     "dropFilesHere": "টেনে এনে ছাড়ুন অথবা",
-    "clickToBrowse": "MIDI ফাইল যোগ করতে ক্লিক করুন",
+    "clickToBrowse": "MIDI বা অডিও ফাইল যোগ করতে ক্লিক করুন",
     "noMidiFilesDropped": "ছেড়ে দেওয়া ফাইলে কোনো MIDI ফাইল পাওয়া যায়নি।",
     "fileTooLarge": "ফাইল খুব বড় ({size})। সীমা: {max}",
     "duplicateFileWarning": "⚠️ ফাইল ইতিমধ্যে বিদ্যমান - ওভাররাইট হবে",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "অডিও → MIDI",
-    "headerButton": "অডিওকে MIDI-তে রূপান্তর করুন",
     "step": {
       "file": "একটি অডিও ফাইল বাছুন",
       "engine": "ইঞ্জিন",

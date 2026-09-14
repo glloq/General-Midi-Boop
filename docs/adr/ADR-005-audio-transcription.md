@@ -104,10 +104,14 @@ transcription, et il est payé **uniquement** par ceux qui l'utilisent.
    dont la licence l'exige ne s'installe pas sans une acceptation qui **nomme
    la licence affichée** ; si elle a changé depuis, l'installation est
    refusée.
-8. **Désactivé par défaut, absent proprement.** La fonctionnalité s'active en
-   configuration ; sans elle, aucun service n'est instancié. Le bouton
-   d'en-tête est masqué tant que l'utilisateur ne l'affiche pas depuis les
-   réglages globaux.
+8. **Absent proprement, et sans bouton.** Le service est instancié par défaut
+   parce qu'il ne coûte rien tant qu'aucun moteur n'est installé (une sonde au
+   démarrage, aucun modèle, aucun réseau) ; `transcription.enabled` à `false`
+   le fait disparaître entièrement. Il n'y a **pas** de bouton dédié : un
+   fichier audio déposé sur l'interface — ou choisi dans le navigateur de
+   fichiers — ouvre la conversion. Un bouton masqué par défaut aurait rendu la
+   fonctionnalité indécouvrable ; la zone de dépôt existait déjà et savait
+   déjà refuser ce fichier.
 
 ## Ce que le contrat de moteur impose
 

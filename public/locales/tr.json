@@ -272,9 +272,6 @@
       "enabled": "Şarkı sözleri etkin",
       "disabled": "Şarkı sözleri devre dışı"
     },
-    "transcriptionButton": {
-      "title": "Ses → MIDI"
-    },
     "transcription": {
       "title": "Ses → MIDI motorları",
       "refresh": "Yenile",
@@ -739,7 +736,7 @@
     "renameFile": "Dosyayı yeniden adlandır",
     "microphoneSettings": "Mikrofon ayarları",
     "dropFilesHere": "Sürükleyip bırakın veya",
-    "clickToBrowse": "MIDI dosyaları eklemek için tıklayın",
+    "clickToBrowse": "MIDI veya ses dosyaları eklemek için tıklayın",
     "noMidiFilesDropped": "Bırakılan dosyalarda MIDI dosyası bulunamadı.",
     "fileTooLarge": "Dosya çok büyük ({size}). Sınır: {max}",
     "duplicateFileWarning": "⚠️ Dosya zaten mevcut - üzerine yazılacak",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Ses → MIDI",
-    "headerButton": "Sesi MIDI’ye dönüştür",
     "step": {
       "file": "Bir ses dosyası seçin",
       "engine": "Motor",

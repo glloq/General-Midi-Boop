@@ -272,9 +272,6 @@
       "enabled": "Dalszöveg engedélyezve",
       "disabled": "Dalszöveg letiltva"
     },
-    "transcriptionButton": {
-      "title": "Hang → MIDI"
-    },
     "transcription": {
       "title": "Hang → MIDI motorok",
       "refresh": "Frissítés",
@@ -739,7 +736,7 @@
     "renameFile": "Fájl átnevezése",
     "microphoneSettings": "Mikrofon beállításai",
     "dropFilesHere": "Húzza ide vagy",
-    "clickToBrowse": "kattintson MIDI fájlok hozzáadásához",
+    "clickToBrowse": "kattintson MIDI- vagy hangfájlok hozzáadásához",
     "noMidiFilesDropped": "Nem található MIDI fájl az áthúzott fájlok között.",
     "fileTooLarge": "A fájl túl nagy ({size}). Korlát: {max}",
     "duplicateFileWarning": "⚠️ A fájl már létezik - felül lesz írva",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Hang → MIDI",
-    "headerButton": "Hang átalakítása MIDI-vé",
     "step": {
       "file": "Válasszon hangfájlt",
       "engine": "Motor",

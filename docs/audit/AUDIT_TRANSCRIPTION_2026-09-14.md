@@ -159,7 +159,7 @@ vocabulaire de statut contient déjà `license_restricted`.
 | Audio de 20 min (plafond 10) | `AUDIO_TOO_LONG` — « Audio is 20:00; the limit is 10:00 » |
 | Corps de 120 Mo | `413 application/json` |
 | Répertoires de travail après tout ça | **0** |
-| Bouton d'en-tête | absent par défaut, révélé par Réglages, ouvre la modale |
+| Point d'entrée | un audio déposé sur l'interface ouvre la modale, fichier déjà choisi |
 | i18n | 28 locales × 66 clés, aucune manquante, aucune vide, aucune non traduite |
 | `shell: true` / `exec` / `eval` dans le domaine | aucun ; un seul site de `spawn` |
 

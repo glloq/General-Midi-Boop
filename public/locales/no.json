@@ -272,9 +272,6 @@
       "enabled": "Sangtekst aktivert",
       "disabled": "Sangtekst deaktivert"
     },
-    "transcriptionButton": {
-      "title": "Lyd → MIDI"
-    },
     "transcription": {
       "title": "Lyd → MIDI-motorer",
       "refresh": "Oppdater",
@@ -739,7 +736,7 @@
     "renameFile": "Gi nytt navn til fil",
     "microphoneSettings": "Mikrofoninnstillinger",
     "dropFilesHere": "Dra og slipp eller",
-    "clickToBrowse": "klikk for å legge til MIDI-filer",
+    "clickToBrowse": "klikk for å legge til MIDI- eller lydfiler",
     "noMidiFilesDropped": "Ingen MIDI-filer funnet i de slupne filene.",
     "fileTooLarge": "Filen er for stor ({size}). Grense: {max}",
     "duplicateFileWarning": "⚠️ Filen eksisterer allerede - vil bli overskrevet",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Lyd → MIDI",
-    "headerButton": "Konverter lyd til MIDI",
     "step": {
       "file": "Velg en lydfil",
       "engine": "Motor",

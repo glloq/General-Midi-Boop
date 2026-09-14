@@ -88,7 +88,13 @@
   color: var(--accent-primary, #667eea);
 }
 
-.tr-hidden-input {
+/* The styled dropzone above is the control; this input is the mechanism.
+ *
+ * The type selector is not decoration: `index.html` sets a global
+ * `input[type="file"] { display: block }`, whose specificity (0,1,1) beats a
+ * bare class (0,1,0). Without it the raw "Choose File" button shows up
+ * underneath the dropzone and the step looks broken. */
+input[type='file'].tr-hidden-input {
   display: none;
 }
 

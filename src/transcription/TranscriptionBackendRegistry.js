@@ -39,10 +39,31 @@ const NULL_LOGGER = Object.freeze({
 });
 
 /**
- * A `checkAvailability()` implementation that hangs (a subprocess probe with
- * no timeout, a stat on a dead NFS mount) must not wedge the Settings page.
+ * How long a backend that says nothing gets to answer `checkAvailability()`.
+ *
+ * The point is a backend that HANGS — a subprocess probe with no timeout of
+ * its own, a stat on a dead NFS mount — not one that is merely slow. A
+ * backend that knows its probe is slow says so with `probeTimeoutMs`:
+ * loading TensorFlow takes tens of seconds on a Raspberry Pi, and capping
+ * that at eight would report a perfectly good engine as `broken` on every
+ * boot, then send its owner to reinstall something that was never broken.
  */
-const PROBE_TIMEOUT_MS = 8000;
+const DEFAULT_PROBE_TIMEOUT_MS = 8000;
+
+/** No backend may exceed this, whatever it declares. */
+const MAX_PROBE_TIMEOUT_MS = 5 * 60 * 1000;
+
+/**
+ * The probe budget for one backend: its own, clamped.
+ *
+ * @param {Object} backend
+ * @returns {number}
+ */
+export function probeTimeoutFor(backend) {
+  const declared = Number(backend?.probeTimeoutMs);
+  if (!Number.isFinite(declared) || declared <= 0) return DEFAULT_PROBE_TIMEOUT_MS;
+  return Math.min(Math.max(declared, DEFAULT_PROBE_TIMEOUT_MS), MAX_PROBE_TIMEOUT_MS);
+}
 
 /**
  * Availability record kept per backend.
@@ -418,15 +439,16 @@ export class TranscriptionBackendRegistry {
   async _runProbe(id, backend) {
     let timer = null;
     let report;
+    const budgetMs = probeTimeoutFor(backend);
     try {
       const timeout = new Promise((resolve) => {
         timer = setTimeout(
           () =>
             resolve({
               status: BACKEND_STATUS.BROKEN,
-              detail: `availability check timed out after ${PROBE_TIMEOUT_MS}ms`
+              detail: `availability check timed out after ${budgetMs}ms`
             }),
-          PROBE_TIMEOUT_MS
+          budgetMs
         );
         if (timer.unref) timer.unref();
       });

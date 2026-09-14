@@ -398,11 +398,6 @@
                           '💡 ' + (i18n.t('settings.lightingButton.title') || 'Contrôle Lumière')
                       },
                       {
-                        id: 'showTranscriptionButtonToggle',
-                        on: this.settings.showTranscriptionButton,
-                        label: '🎧 ' + i18n.t('settings.transcriptionButton.title')
-                      },
-                      {
                         id: 'showDebugButtonToggle',
                         on: this.settings.showDebugButton,
                         label: '🐞 ' + i18n.t('settings.debugButton.title')

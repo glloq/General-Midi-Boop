@@ -272,9 +272,6 @@
       "enabled": "Lyrics enabled",
       "disabled": "Lyrics disabled"
     },
-    "transcriptionButton": {
-      "title": "Audio → MIDI"
-    },
     "transcription": {
       "title": "Audio → MIDI engines",
       "refresh": "Refresh",
@@ -739,7 +736,7 @@
     "renameFile": "Rename file",
     "microphoneSettings": "Microphone settings",
     "dropFilesHere": "Drag and drop or",
-    "clickToBrowse": "click to add MIDI files",
+    "clickToBrowse": "click to add MIDI or audio files",
     "noMidiFilesDropped": "No MIDI files found in the dropped files.",
     "fileTooLarge": "File too large ({size}). Limit: {max}",
     "duplicateFileWarning": "⚠️ File already exists - will be overwritten",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Audio → MIDI",
-    "headerButton": "Convert audio to MIDI",
     "step": {
       "file": "Choose an audio file",
       "engine": "Engine",

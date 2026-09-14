@@ -1,12 +1,29 @@
 # Audio → MIDI transcription
 
-> **Status: usable (PR 1–10 of 15).** The pipeline runs end to end: upload
-> audio, watch it convert, and find the MIDI in your library. One engine
-> (Basic Pitch) is supported and is installed separately — see
-> [Installing an engine](#installing-an-engine). On a server with no engine
-> GMB behaves exactly as before and says so plainly. Automated installation,
-> a multi-instrument engine and the Pi benchmarks are still to come — see
+> **Status: usable.** The pipeline runs end to end: drop in audio, watch it
+> convert, find the MIDI in your library. One engine (Basic Pitch) is
+> supported and installs itself from Settings — see
+> [Installing an engine](#installing-an-engine). On a server with no engine,
+> or with no FFmpeg, GMB behaves exactly as before and says so plainly. A
+> multi-instrument engine waits on licence verification, and the Raspberry Pi
+> figures below are estimates until a Pi produces them — see
 > [Roadmap](#roadmap).
+
+## Opening it
+
+**There is no button.** Drop an audio file anywhere on the interface, or pick
+one through the usual file browser (the drop zone's *click to add* opens it),
+and the conversion opens with that file already chosen. A `.mid` dropped the
+same way still goes straight to the library, untouched.
+
+That is deliberate: a dedicated button would have to be hidden by default —
+the feature needs an engine installed separately — and a hidden button is one
+nobody finds. The drop zone was already there, already refusing audio files;
+now it does something useful with them instead.
+
+What counts as audio is one list, `TranscriptionModal.AUDIO_EXTENSIONS`, read
+by the page for routing and by the file picker for its `accept`. The server
+checks the bytes regardless — the list only decides which drop lands where.
 
 Turning a recording into a MIDI file GMB can route to real instruments is a
 long pipeline with one strict rule: **it ends where the existing MIDI pipeline
@@ -237,13 +254,13 @@ filesystem paths stay in the logs, they do not reach the browser.
 | 5 | Import through `FileManager.handleUpload()` | ✅ done |
 | 6 | WebSocket commands + schemas | ✅ done |
 | 7 | Basic Pitch backend (isolated venv, pinned versions) | ✅ done |
-| 8–9 | UI: Convert Audio, engine/quality choice, progress, results | ✅ done |
+| 8–9 | UI: the modal, engine/quality choice, progress, results | ✅ done |
 | 10 | Capability / health / Settings integration | ✅ done |
 | 11 | Backend installer (consent, smoke test, rollback) | ✅ done |
-| 12 | Multi-instrument engine, after licence verification | planned |
-| 13 | Advanced expression (pitch contours, CC11, simplification) | planned |
-| 14 | Raspberry Pi benchmarks and limit tuning | planned |
-| 15 | Documentation and hardening | planned |
+| 12 | Multi-instrument engine, after licence verification | **not done** — §8 forbids integrating an engine whose licence has not been verified, and none could be |
+| 13 | Advanced expression (pitch contours, CC11, simplification) | ✅ done in PR 4 |
+| 14 | Raspberry Pi benchmarks and limit tuning | ✅ script shipped (`scripts/transcription-benchmark.mjs`); the numbers need a real Pi |
+| 15 | Documentation and hardening | ✅ done |
 
 ## Installing an engine
 
@@ -362,7 +379,7 @@ the environment" rather than producing silently wrong results.
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| The Convert Audio button is missing | Hidden by default | Settings → Interface buttons → Audio → MIDI |
+| Nothing happens when I drop an audio file | The format is not one GMB offers | See the accepted formats above; the file browser lists them too |
 | "FFmpeg is not installed" | FFmpeg absent from `PATH` | `sudo apt install ffmpeg` |
 | Engine shows *Can be installed* | No virtual environment yet | Follow the install steps above |
 | Engine shows *Installed but unusable* | The venv exists but does not import | Re-run the `pip install`; the Settings detail line carries the Python error |

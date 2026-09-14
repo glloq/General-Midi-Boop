@@ -272,9 +272,6 @@
       "enabled": "Lyrics सक्षम",
       "disabled": "Lyrics अक्षम"
     },
-    "transcriptionButton": {
-      "title": "ऑडियो → MIDI"
-    },
     "transcription": {
       "title": "ऑडियो → MIDI इंजन",
       "refresh": "ताज़ा करें",
@@ -739,7 +736,7 @@
     "renameFile": "फ़ाइल का नाम बदलें",
     "microphoneSettings": "माइक्रोफ़ोन सेटिंग्स",
     "dropFilesHere": "खींचें और छोड़ें या",
-    "clickToBrowse": "MIDI फ़ाइलें जोड़ने के लिए क्लिक करें",
+    "clickToBrowse": "MIDI या ऑडियो फ़ाइलें जोड़ने के लिए क्लिक करें",
     "noMidiFilesDropped": "छोड़ी गई फ़ाइलों में कोई MIDI फ़ाइल नहीं मिली।",
     "fileTooLarge": "फ़ाइल बहुत बड़ी है ({size})। सीमा: {max}",
     "duplicateFileWarning": "⚠️ फ़ाइल पहले से मौजूद है - ओवरराइट की जाएगी",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "ऑडियो → MIDI",
-    "headerButton": "ऑडियो को MIDI में बदलें",
     "step": {
       "file": "ऑडियो फ़ाइल चुनें",
       "engine": "इंजन",

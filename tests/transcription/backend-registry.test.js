@@ -6,7 +6,8 @@
  */
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import TranscriptionBackendRegistry, {
-  scoreBackend
+  scoreBackend,
+  probeTimeoutFor
 } from '../../src/transcription/TranscriptionBackendRegistry.js';
 import TranscriptionBackend from '../../src/transcription/TranscriptionBackend.js';
 import {
@@ -445,5 +446,51 @@ describe('settings', () => {
     });
     expect(registry.settings.dataDir).toBe(dataDir);
     expect(existsSync(transcriptionPaths(registry.settings).root)).toBe(false);
+  });
+});
+
+// A backend that HANGS must not wedge the Settings page; a backend that is
+// merely SLOW must not be called broken. Basic Pitch's self-check imports
+// TensorFlow — tens of seconds on a Pi — and the registry's short default
+// would have reported a working engine as broken on every boot.
+describe('probe budget', () => {
+  test('a backend that declares nothing gets the short default', () => {
+    expect(probeTimeoutFor({})).toBe(8000);
+    expect(probeTimeoutFor(undefined)).toBe(8000);
+    expect(probeTimeoutFor({ probeTimeoutMs: 'soon' })).toBe(8000);
+    expect(probeTimeoutFor({ probeTimeoutMs: 0 })).toBe(8000);
+    expect(probeTimeoutFor({ probeTimeoutMs: -1 })).toBe(8000);
+  });
+
+  test('a slow backend gets what it asks for', () => {
+    expect(probeTimeoutFor({ probeTimeoutMs: 125000 })).toBe(125000);
+  });
+
+  test('nobody may ask for less than the default, or more than the ceiling', () => {
+    expect(probeTimeoutFor({ probeTimeoutMs: 10 })).toBe(8000);
+    expect(probeTimeoutFor({ probeTimeoutMs: 60 * 60 * 1000 })).toBe(5 * 60 * 1000);
+  });
+
+  test('a slow probe is awaited, not recorded as broken', async () => {
+    const { registry } = makeRegistry();
+    const slow = new FakeBackend({ id: 'slow', status: BACKEND_STATUS.AVAILABLE });
+    slow.probeTimeoutMs = 30000;
+    const original = slow.checkAvailability.bind(slow);
+    slow.checkAvailability = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      return original();
+    };
+    registry.register(slow);
+
+    const [descriptor] = await registry.detectAvailable({ force: true, includeUnavailable: true });
+    expect(descriptor.status).toBe(BACKEND_STATUS.AVAILABLE);
+  });
+
+  test('the shipped engine asks for more than the default, and is honoured', async () => {
+    const { BasicPitchBackend } =
+      await import('../../src/transcription/backends/BasicPitchBackend.js');
+    const backend = new BasicPitchBackend({ config: { transcription: { dataDir: '/tmp/none' } } });
+    expect(backend.probeTimeoutMs).toBeGreaterThan(8000);
+    expect(probeTimeoutFor(backend)).toBe(backend.probeTimeoutMs);
   });
 });

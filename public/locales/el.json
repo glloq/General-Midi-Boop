@@ -272,9 +272,6 @@
       "enabled": "Στίχοι ενεργοί",
       "disabled": "Στίχοι απενεργοποιημένοι"
     },
-    "transcriptionButton": {
-      "title": "Ήχος → MIDI"
-    },
     "transcription": {
       "title": "Μηχανές Ήχος → MIDI",
       "refresh": "Ανανέωση",
@@ -739,7 +736,7 @@
     "renameFile": "Μετονομασία αρχείου",
     "microphoneSettings": "Ρυθμίσεις μικροφώνου",
     "dropFilesHere": "Σύρετε και αποθέστε ή",
-    "clickToBrowse": "κάντε κλικ για προσθήκη αρχείων MIDI",
+    "clickToBrowse": "κάντε κλικ για προσθήκη αρχείων MIDI ή ήχου",
     "noMidiFilesDropped": "Δεν βρέθηκαν αρχεία MIDI στα αρχεία που αποτέθηκαν.",
     "fileTooLarge": "Αρχείο πολύ μεγάλο ({size}). Όριο: {max}",
     "duplicateFileWarning": "⚠️ Το αρχείο υπάρχει ήδη - θα αντικατασταθεί",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Ήχος → MIDI",
-    "headerButton": "Μετατροπή ήχου σε MIDI",
     "step": {
       "file": "Επιλέξτε αρχείο ήχου",
       "engine": "Μηχανή",

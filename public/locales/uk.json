@@ -272,9 +272,6 @@
       "enabled": "Текст увімкнено",
       "disabled": "Текст вимкнено"
     },
-    "transcriptionButton": {
-      "title": "Аудіо → MIDI"
-    },
     "transcription": {
       "title": "Рушії Аудіо → MIDI",
       "refresh": "Оновити",
@@ -739,7 +736,7 @@
     "renameFile": "Перейменувати файл",
     "microphoneSettings": "Налаштування мікрофона",
     "dropFilesHere": "Перетягніть або",
-    "clickToBrowse": "клацніть, щоб додати файли MIDI",
+    "clickToBrowse": "клацніть, щоб додати файли MIDI або аудіо",
     "noMidiFilesDropped": "Серед перетягнутих файлів не знайдено файлів MIDI.",
     "fileTooLarge": "Файл занадто великий ({size}). Ліміт: {max}",
     "duplicateFileWarning": "⚠️ Файл вже існує - буде перезаписаний",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Аудіо → MIDI",
-    "headerButton": "Перетворити аудіо на MIDI",
     "step": {
       "file": "Виберіть аудіофайл",
       "engine": "Рушій",

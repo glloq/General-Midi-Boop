@@ -272,9 +272,6 @@
       "enabled": "Tekst włączony",
       "disabled": "Tekst wyłączony"
     },
-    "transcriptionButton": {
-      "title": "Audio → MIDI"
-    },
     "transcription": {
       "title": "Silniki Audio → MIDI",
       "refresh": "Odśwież",
@@ -739,7 +736,7 @@
     "renameFile": "Zmień nazwę pliku",
     "microphoneSettings": "Ustawienia mikrofonu",
     "dropFilesHere": "Przeciągnij i upuść lub",
-    "clickToBrowse": "kliknij, aby dodać pliki MIDI",
+    "clickToBrowse": "kliknij, aby dodać pliki MIDI lub audio",
     "noMidiFilesDropped": "Nie znaleziono plików MIDI wśród upuszczonych plików.",
     "fileTooLarge": "Plik jest za duży ({size}). Limit: {max}",
     "duplicateFileWarning": "⚠️ Plik już istnieje - zostanie nadpisany",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Audio → MIDI",
-    "headerButton": "Konwertuj audio na MIDI",
     "step": {
       "file": "Wybierz plik audio",
       "engine": "Silnik",

@@ -29,6 +29,35 @@ class TranscriptionModal extends BaseModal {
     'importing'
   ];
 
+  /**
+   * Extensions this modal accepts, without the dot.
+   *
+   * The main page reads this to decide what a dropped file IS: a `.mid`
+   * goes to the library, anything listed here opens this modal. Two lists
+   * would drift, and the failure would be silent — a format the modal
+   * accepts that the page answers with "no MIDI file detected".
+   *
+   * The server has the final say (`AudioPreprocessor.SUPPORTED_EXTENSIONS`);
+   * this list only decides which drop lands where.
+   */
+  static AUDIO_EXTENSIONS = [
+    'wav',
+    'mp3',
+    'flac',
+    'ogg',
+    'oga',
+    'opus',
+    'm4a',
+    'aac',
+    'aiff',
+    'aif',
+    'wma',
+    'mp4',
+    'mkv',
+    'webm',
+    'mov'
+  ];
+
   /** Feature toggles, and the backend capability each one needs (§30). */
   static OPTION_FLAGS = [
     { key: 'preserveDynamics', capability: 'dynamics', default: true },
@@ -73,6 +102,8 @@ class TranscriptionModal extends BaseModal {
     this.fileDuration = null;
     this.job = null;
     this.error = null;
+    /** @type {?File} Handed in by `openWith` before the view was ready. */
+    this._pendingFile = null;
 
     /** Bound WS handlers, kept so they can be detached on close. */
     this._handlers = null;
@@ -93,6 +124,7 @@ class TranscriptionModal extends BaseModal {
   onClose() {
     this._detachApiHandlers();
     this._revokeObjectUrl();
+    this._pendingFile = null;
   }
 
   /** @override */
@@ -176,6 +208,16 @@ class TranscriptionModal extends BaseModal {
       this.error = { message: error.message };
       this.view = 'unavailable';
     }
+    // A file handed to `openWith` before the server answered. Dropped on the
+    // floor if the server turns out to have no engine: the unavailable view
+    // has nothing to do with it.
+    if (this._pendingFile && this.view === 'select') {
+      const file = this._pendingFile;
+      this._pendingFile = null;
+      this._setFile(file);
+      return; // `_setFile` updates
+    }
+    this._pendingFile = null;
     this.update();
   }
 
@@ -314,7 +356,7 @@ class TranscriptionModal extends BaseModal {
           <strong>${this.escape(this.t('transcription.dropzone.browse'))}</strong>
         </div>
         <input type="file" id="tr-file-input" class="tr-hidden-input"
-               accept=".wav,.mp3,.flac,.ogg,.oga,.opus,.m4a,.aac,.aiff,.aif,.wma,.mp4,.mkv,.webm,.mov"
+               accept="${TranscriptionModal.acceptAttribute()}"
                aria-label="${this.escape(this.t('transcription.dropzone.aria'))}">
         ${details}
       </section>`;
@@ -761,6 +803,55 @@ class TranscriptionModal extends BaseModal {
       const state = this._stageState(item.dataset.stage);
       item.className = `tr-stage is-${state}`;
     }
+  }
+
+  /**
+   * `accept` value for a file input that should offer audio.
+   * @returns {string}
+   */
+  static acceptAttribute() {
+    return TranscriptionModal.AUDIO_EXTENSIONS.map((ext) => `.${ext}`).join(',');
+  }
+
+  /**
+   * Is this a file the audio → MIDI pipeline should be offered for?
+   *
+   * By extension, deliberately: a browser's `file.type` is empty for plenty
+   * of real audio files and wrong for others, and the server checks the
+   * bytes anyway. Getting this wrong here only misroutes a drop.
+   *
+   * @param {File|{name: string}} file
+   * @returns {boolean}
+   */
+  static isAudioFile(file) {
+    const name = String(file?.name || '').toLowerCase();
+    return TranscriptionModal.AUDIO_EXTENSIONS.some((ext) => name.endsWith(`.${ext}`));
+  }
+
+  /**
+   * Open with a file already chosen — how the main page hands over a
+   * dropped or picked audio file.
+   *
+   * Works whether or not the modal is already open, and never interrupts a
+   * conversion that is already running: the file is remembered and applied
+   * once the current job is out of the way.
+   *
+   * @param {File} file
+   * @returns {void}
+   */
+  openWith(file) {
+    if (!this.isOpen) {
+      this._pendingFile = file;
+      this.open();
+      return;
+    }
+    if (this.view === 'running') {
+      this.logger?.info?.('A conversion is already running; the dropped file was ignored.');
+      return;
+    }
+    if (this.view === 'result') this._reset();
+    if (this.view === 'select') this._setFile(file);
+    else this._pendingFile = file;
   }
 
   /**

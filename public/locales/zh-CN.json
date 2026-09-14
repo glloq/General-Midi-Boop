@@ -272,9 +272,6 @@
       "enabled": "歌词已启用",
       "disabled": "歌词已禁用"
     },
-    "transcriptionButton": {
-      "title": "音频 → MIDI"
-    },
     "transcription": {
       "title": "音频 → MIDI 引擎",
       "refresh": "刷新",
@@ -739,7 +736,7 @@
     "renameFile": "重命名文件",
     "microphoneSettings": "麦克风设置",
     "dropFilesHere": "拖放或",
-    "clickToBrowse": "点击以添加 MIDI 文件",
+    "clickToBrowse": "点击以添加 MIDI 或音频文件",
     "noMidiFilesDropped": "拖放的文件中未找到 MIDI 文件。",
     "fileTooLarge": "文件太大 ({size})。限制: {max}",
     "duplicateFileWarning": "⚠️ 文件已存在 - 将被覆盖",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "音频 → MIDI",
-    "headerButton": "将音频转换为 MIDI",
     "step": {
       "file": "选择音频文件",
       "engine": "引擎",

@@ -272,9 +272,6 @@
       "enabled": "Naka-enable ang lyrics",
       "disabled": "Naka-disable ang lyrics"
     },
-    "transcriptionButton": {
-      "title": "Audio → MIDI"
-    },
     "transcription": {
       "title": "Mga Audio → MIDI engine",
       "refresh": "I-refresh",
@@ -739,7 +736,7 @@
     "renameFile": "Palitan ang pangalan ng file",
     "microphoneSettings": "Mga setting ng mikropono",
     "dropFilesHere": "I-drag and drop o",
-    "clickToBrowse": "i-click para magdagdag ng MIDI files",
+    "clickToBrowse": "i-click para magdagdag ng MIDI o audio files",
     "noMidiFilesDropped": "Walang MIDI files na nakita sa mga na-drop na file.",
     "fileTooLarge": "Masyadong malaki ang file ({size}). Limitasyon: {max}",
     "duplicateFileWarning": "⚠️ Mayroon nang file - mao-overwrite",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Audio → MIDI",
-    "headerButton": "I-convert ang audio sa MIDI",
     "step": {
       "file": "Pumili ng audio file",
       "engine": "Engine",

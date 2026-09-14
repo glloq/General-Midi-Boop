@@ -272,9 +272,6 @@
       "enabled": "Text zapnut",
       "disabled": "Text vypnut"
     },
-    "transcriptionButton": {
-      "title": "Audio → MIDI"
-    },
     "transcription": {
       "title": "Enginy Audio → MIDI",
       "refresh": "Obnovit",
@@ -739,7 +736,7 @@
     "renameFile": "Přejmenovat soubor",
     "microphoneSettings": "Nastavení mikrofonu",
     "dropFilesHere": "Přetáhněte sem nebo",
-    "clickToBrowse": "klikněte pro přidání souborů MIDI",
+    "clickToBrowse": "klikněte pro přidání souborů MIDI nebo audio",
     "noMidiFilesDropped": "V přetažených souborech nebyly nalezeny žádné soubory MIDI.",
     "fileTooLarge": "Soubor je příliš velký ({size}). Limit: {max}",
     "duplicateFileWarning": "⚠️ Soubor již existuje - bude přepsán",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Audio → MIDI",
-    "headerButton": "Převést audio na MIDI",
     "step": {
       "file": "Vyberte zvukový soubor",
       "engine": "Engine",

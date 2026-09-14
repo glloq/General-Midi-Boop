@@ -272,9 +272,6 @@
       "enabled": "Sanoitukset käytössä",
       "disabled": "Sanoitukset pois käytöstä"
     },
-    "transcriptionButton": {
-      "title": "Ääni → MIDI"
-    },
     "transcription": {
       "title": "Ääni → MIDI -moottorit",
       "refresh": "Päivitä",
@@ -739,7 +736,7 @@
     "renameFile": "Nimeä tiedosto uudelleen",
     "microphoneSettings": "Mikrofonin asetukset",
     "dropFilesHere": "Vedä ja pudota tai",
-    "clickToBrowse": "lisää MIDI-tiedostoja napsauttamalla",
+    "clickToBrowse": "lisää MIDI- tai äänitiedostoja napsauttamalla",
     "noMidiFilesDropped": "Pudotetuista tiedostoista ei löytynyt MIDI-tiedostoja.",
     "fileTooLarge": "Tiedosto liian suuri ({size}). Raja: {max}",
     "duplicateFileWarning": "⚠️ Tiedosto on jo olemassa - korvataan",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Ääni → MIDI",
-    "headerButton": "Muunna ääni MIDI-tiedostoksi",
     "step": {
       "file": "Valitse äänitiedosto",
       "engine": "Moottori",

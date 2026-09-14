@@ -272,9 +272,6 @@
       "enabled": "Текст включён",
       "disabled": "Текст отключён"
     },
-    "transcriptionButton": {
-      "title": "Аудио → MIDI"
-    },
     "transcription": {
       "title": "Движки Аудио → MIDI",
       "refresh": "Обновить",
@@ -739,7 +736,7 @@
     "renameFile": "Переименовать файл",
     "microphoneSettings": "Настройки микрофона",
     "dropFilesHere": "Перетащите или",
-    "clickToBrowse": "нажмите, чтобы добавить MIDI-файлы",
+    "clickToBrowse": "нажмите, чтобы добавить MIDI- или аудиофайлы",
     "noMidiFilesDropped": "В перетащенных файлах не найдено MIDI-файлов.",
     "fileTooLarge": "Файл слишком большой ({size}). Лимит: {max}",
     "duplicateFileWarning": "⚠️ Файл уже существует - будет перезаписан",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Аудио → MIDI",
-    "headerButton": "Преобразовать аудио в MIDI",
     "step": {
       "file": "Выберите аудиофайл",
       "engine": "Движок",

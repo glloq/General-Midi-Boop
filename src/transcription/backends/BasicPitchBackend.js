@@ -388,6 +388,19 @@ export class BasicPitchBackend extends TranscriptionBackend {
   }
 
   /**
+   * How long the registry should wait for `checkAvailability()`.
+   *
+   * The self-check imports TensorFlow, which is tens of seconds on a Pi and
+   * several even on a desktop. Without this the registry's own short default
+   * would cut the probe off and record `broken` for an engine that works.
+   *
+   * @returns {number}
+   */
+  get probeTimeoutMs() {
+    return SELF_CHECK_TIMEOUT_MS + 5000;
+  }
+
+  /**
    * Create the isolated environment and install the pinned requirements.
    *
    * Every step is a subprocess with a timeout and a cancellation signal; a

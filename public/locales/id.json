@@ -272,9 +272,6 @@
       "enabled": "Lirik aktif",
       "disabled": "Lirik nonaktif"
     },
-    "transcriptionButton": {
-      "title": "Audio → MIDI"
-    },
     "transcription": {
       "title": "Mesin Audio → MIDI",
       "refresh": "Segarkan",
@@ -739,7 +736,7 @@
     "renameFile": "Ganti nama file",
     "microphoneSettings": "Pengaturan mikrofon",
     "dropFilesHere": "Seret dan lepas atau",
-    "clickToBrowse": "klik untuk menambah file MIDI",
+    "clickToBrowse": "klik untuk menambah file MIDI atau audio",
     "noMidiFilesDropped": "Tidak ada file MIDI ditemukan dalam file yang dilepas.",
     "fileTooLarge": "File terlalu besar ({size}). Batas: {max}",
     "duplicateFileWarning": "⚠️ File sudah ada - akan ditimpa",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Audio → MIDI",
-    "headerButton": "Ubah audio menjadi MIDI",
     "step": {
       "file": "Pilih berkas audio",
       "engine": "Mesin",

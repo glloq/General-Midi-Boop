@@ -568,3 +568,119 @@ describe('hygiene', () => {
     modal.close();
   });
 });
+
+// The page decides what a dropped file IS by asking this class, and hands
+// audio over with `openWith`. Both are part of its contract now, not
+// internals.
+describe('entry point from the page', () => {
+  const Modal = () => window.TranscriptionModal;
+  const file = (name) => new window.File(['x'], name, { type: '' });
+
+  it('recognises the formats it offers, and nothing else', () => {
+    for (const name of ['song.mp3', 'SONG.MP3', 'take.flac', 'clip.mp4', 'voice.m4a']) {
+      expect(Modal().isAudioFile(file(name))).toBe(true);
+    }
+    for (const name of ['song.mid', 'song.midi', 'notes.txt', 'mp3', 'song.mp3.txt', '']) {
+      expect(Modal().isAudioFile(file(name))).toBe(false);
+    }
+  });
+
+  it('survives a malformed file object rather than throwing on a drop', () => {
+    expect(Modal().isAudioFile(null)).toBe(false);
+    expect(Modal().isAudioFile({})).toBe(false);
+  });
+
+  it('builds its accept attribute from the same list', () => {
+    const accept = Modal().acceptAttribute();
+    for (const ext of Modal().AUDIO_EXTENSIONS) expect(accept).toContain(`.${ext}`);
+    expect(accept.startsWith('.')).toBe(true);
+    expect(accept).not.toContain('.mid,');
+  });
+
+  it('opens with the dropped file already chosen', async () => {
+    const api = makeApi();
+    const modal = new window.TranscriptionModal(api, {});
+    modal.openWith(file('dropped.wav'));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(modal.isOpen).toBe(true);
+    expect(modal.file?.name).toBe('dropped.wav');
+    expect(modal.dialog.textContent).toContain('dropped.wav');
+    modal.close();
+  });
+
+  it('takes a second file while already open on the picker', async () => {
+    const api = makeApi();
+    const modal = await openModal(api);
+    modal.openWith(file('first.wav'));
+    expect(modal.file?.name).toBe('first.wav');
+
+    modal.openWith(file('second.mp3'));
+    expect(modal.file?.name).toBe('second.mp3');
+    modal.close();
+  });
+
+  it('does not interrupt a conversion that is already running', async () => {
+    const api = makeApi();
+    const modal = await openModal(api);
+    modal.view = 'running';
+    modal.job = { id: 'job-abcdef0123456789', status: 'transcribing' };
+
+    modal.openWith(file('late.wav'));
+
+    expect(modal.view).toBe('running');
+    expect(modal.file).toBeNull();
+    modal.close();
+  });
+
+  it('drops the file rather than pretend, when the server has no engine', async () => {
+    const api = makeApi();
+    api.capabilities = {
+      status: 'disabled',
+      detail: 'none',
+      ffmpeg: { available: false },
+      backends: []
+    };
+    const modal = new window.TranscriptionModal(api, {});
+    modal.openWith(file('hopeful.wav'));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(modal.view).toBe('unavailable');
+    expect(modal.file).toBeNull();
+    expect(modal._pendingFile).toBeNull();
+    modal.close();
+  });
+
+  it('forgets a pending file when the modal is closed again', async () => {
+    const api = makeApi();
+    const modal = new window.TranscriptionModal(api, {});
+    modal.openWith(file('abandoned.wav'));
+    modal.close();
+    expect(modal._pendingFile).toBeNull();
+  });
+});
+
+// jsdom applies no stylesheets, so this reads the shipped CSS. The rule it
+// checks is not obvious on sight, and was wrong once already: the raw
+// "Choose File" button sat visible under the styled dropzone.
+describe('the raw file input stays hidden', () => {
+  const ROOT = resolve(__dirname, '..', '..');
+  const CSS = readFileSync(resolve(ROOT, 'public', 'styles', 'transcription-modal.css'), 'utf8');
+  const INDEX = readFileSync(resolve(ROOT, 'public', 'index.html'), 'utf8');
+
+  it('outranks the global rule in index.html instead of tying with it', () => {
+    // The rule it has to beat: specificity (0,1,1), against a bare class's
+    // (0,1,0). Naming the type selector in our own rule settles it.
+    expect(INDEX).toMatch(/input\[type="file"\]\s*\{[^}]*display:\s*block/);
+    expect(CSS).toMatch(/input\[type='file'\]\.tr-hidden-input\s*\{\s*display:\s*none/);
+  });
+
+  it('does not reach for !important to win', () => {
+    const at = CSS.indexOf('.tr-hidden-input');
+    expect(CSS.slice(at, at + 120)).not.toContain('!important');
+  });
+});

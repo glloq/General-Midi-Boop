@@ -272,9 +272,6 @@
       "enabled": "Songtekst ingeschakeld",
       "disabled": "Songtekst uitgeschakeld"
     },
-    "transcriptionButton": {
-      "title": "Audio → MIDI"
-    },
     "transcription": {
       "title": "Audio → MIDI-engines",
       "refresh": "Vernieuwen",
@@ -739,7 +736,7 @@
     "renameFile": "Bestand hernoemen",
     "microphoneSettings": "Microfooninstellingen",
     "dropFilesHere": "Sleep en zet neer of",
-    "clickToBrowse": "klik om MIDI-bestanden toe te voegen",
+    "clickToBrowse": "klik om MIDI- of audiobestanden toe te voegen",
     "noMidiFilesDropped": "Geen MIDI-bestanden gevonden in de neergezette bestanden.",
     "fileTooLarge": "Bestand te groot ({size}). Limiet: {max}",
     "duplicateFileWarning": "⚠️ Bestand bestaat al - wordt overschreven",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Audio → MIDI",
-    "headerButton": "Audio naar MIDI omzetten",
     "step": {
       "file": "Kies een audiobestand",
       "engine": "Engine",

@@ -126,8 +126,9 @@ library, ready to edit, adapt and play on the orchestra like any other.
   uploaded MIDI file, so the editor, the auto-assigner and playback all work on
   it unchanged.
 
-Enable it from the global settings; a header button then opens the Audio → MIDI
-modal. See [docs/AUDIO_TRANSCRIPTION.md](./docs/AUDIO_TRANSCRIPTION.md).
+Drop an audio file anywhere on the interface — or pick one from the file
+browser — and the conversion opens with that file ready to go. See
+[docs/AUDIO_TRANSCRIPTION.md](./docs/AUDIO_TRANSCRIPTION.md).
 
 ## Lighting
 

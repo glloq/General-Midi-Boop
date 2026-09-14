@@ -272,9 +272,6 @@
       "enabled": "เปิดเนื้อร้อง",
       "disabled": "ปิดเนื้อร้อง"
     },
-    "transcriptionButton": {
-      "title": "เสียง → MIDI"
-    },
     "transcription": {
       "title": "เอนจินเสียง → MIDI",
       "refresh": "รีเฟรช",
@@ -739,7 +736,7 @@
     "renameFile": "เปลี่ยนชื่อไฟล์",
     "microphoneSettings": "การตั้งค่าไมโครโฟน",
     "dropFilesHere": "ลากแล้ววางหรือ",
-    "clickToBrowse": "คลิกเพื่อเพิ่มไฟล์ MIDI",
+    "clickToBrowse": "คลิกเพื่อเพิ่มไฟล์ MIDI หรือเสียง",
     "noMidiFilesDropped": "ไม่พบไฟล์ MIDI ในไฟล์ที่วาง",
     "fileTooLarge": "ไฟล์ใหญ่เกินไป ({size}) จำกัด: {max}",
     "duplicateFileWarning": "⚠️ ไฟล์มีอยู่แล้ว - จะถูกเขียนทับ",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "เสียง → MIDI",
-    "headerButton": "แปลงเสียงเป็น MIDI",
     "step": {
       "file": "เลือกไฟล์เสียง",
       "engine": "เอนจิน",

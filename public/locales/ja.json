@@ -272,9 +272,6 @@
       "enabled": "歌詞を有効化",
       "disabled": "歌詞を無効化"
     },
-    "transcriptionButton": {
-      "title": "オーディオ → MIDI"
-    },
     "transcription": {
       "title": "オーディオ → MIDI エンジン",
       "refresh": "更新",
@@ -739,7 +736,7 @@
     "renameFile": "ファイル名を変更",
     "microphoneSettings": "マイク設定",
     "dropFilesHere": "ドラッグ＆ドロップまたは",
-    "clickToBrowse": "クリックして MIDI ファイルを追加",
+    "clickToBrowse": "クリックして MIDI またはオーディオファイルを追加",
     "noMidiFilesDropped": "ドロップされたファイルに MIDI ファイルが見つかりません。",
     "fileTooLarge": "ファイルが大きすぎます ({size})。制限: {max}",
     "duplicateFileWarning": "⚠️ ファイルは既に存在します - 上書きされます",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "オーディオ → MIDI",
-    "headerButton": "オーディオを MIDI に変換",
     "step": {
       "file": "オーディオファイルを選択",
       "engine": "エンジン",

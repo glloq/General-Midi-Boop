@@ -272,9 +272,6 @@
       "enabled": "Letras activadas",
       "disabled": "Letras desactivadas"
     },
-    "transcriptionButton": {
-      "title": "Audio → MIDI"
-    },
     "transcription": {
       "title": "Motores Audio → MIDI",
       "refresh": "Actualizar",
@@ -739,7 +736,7 @@
     "renameFile": "Renombrar archivo",
     "microphoneSettings": "Ajustes del micrófono",
     "dropFilesHere": "Arrastrar y soltar o",
-    "clickToBrowse": "clic para añadir archivos MIDI",
+    "clickToBrowse": "clic para añadir archivos MIDI o de audio",
     "noMidiFilesDropped": "No se encontraron archivos MIDI en los archivos soltados.",
     "fileTooLarge": "Archivo demasiado grande ({size}). Límite: {max}",
     "duplicateFileWarning": "⚠️ El archivo ya existe - será sobrescrito",
@@ -3141,7 +3138,6 @@
   },
   "transcription": {
     "title": "Audio → MIDI",
-    "headerButton": "Convertir audio a MIDI",
     "step": {
       "file": "Elegir un archivo de audio",
       "engine": "Motor",
