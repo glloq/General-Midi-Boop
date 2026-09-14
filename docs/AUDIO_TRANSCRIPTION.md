@@ -338,6 +338,13 @@ post-processes and encodes the notes **synchronously**. On a ten-minute file
 a second on a Pi 4 — during which the MIDI scheduler does not run. If you are
 playing a piece while a transcription finishes, expect it to hitch once.
 
+Deliberately left that way: a worker thread was measured and costs *more*
+main-thread time than the work it would move (175 ms just to start one, or
+463 ms to post the result across), so the only option that would actually
+help is slicing the two transforms into async chunks — a real cost for a
+one-off hitch at the end of a job you started. See
+`docs/audit/AUDIT_TRANSCRIPTION_ALGO_2026-09-14.md` §6.
+
 TensorFlow is the heavy part of that install. The transcription runs at two
 threads (`OMP_NUM_THREADS=2`) so the MIDI side of GMB keeps its cores while a
 conversion is going on.

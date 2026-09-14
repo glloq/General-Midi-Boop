@@ -148,12 +148,34 @@ quand une transcription se termine, elle accroche une fois. GMB considère
 lui-même qu'un blocage de 50 à 200 ms perturbe l'ordonnanceur
 (`src/api/WsOutputQueue.js`).
 
-**Non corrigé, délibérément.** Le correctif propre consiste à rendre `process()`
-et `encode()` asynchrones avec des points de respiration — un refactor qui
-touche une cinquantaine d'appels de test et change deux API publiques du module.
-Ce n'est pas une décision à prendre au détour d'un audit. Le blocage est borné,
-unique, et n'arrive qu'en fin de travail ; la zone morte du §2 l'a déjà réduit
-de moitié.
+**Non corrigé, et après mesure des alternatives, à ne pas corriger ainsi.**
+
+Les trois façons de ne pas bloquer, chiffrées sur les mêmes 5 000 notes
+(coût payé sur le thread principal) :
+
+| Option | Coût sur le thread principal |
+| --- | --- |
+| Ne rien faire (aujourd'hui) | **166 ms** |
+| Fil d'exécution, en postant le résultat | **463 ms** de `structuredClone` seul |
+| Fil d'exécution, en postant un chemin | **175 ms** rien que pour démarrer le fil |
+
+Un worker coûte donc **plus cher que le travail lui-même** : le démarrage seul
+dépasse le calcul qu'il est censé déporter, et poster l'objet triple la facture.
+Le démarrer à l'avance, pendant que le moteur tourne, ne fait que déplacer le
+blocage du début à la fin du travail ; le maintenir chaud en permanence coûte de
+la RAM résidente sur un Pi pour une fonctionnalité occasionnelle — précisément
+le compromis que l'ADR-005 refuse pour le démon Python.
+
+Reste le découpage asynchrone de `process()` et `encode()`. C'est la seule
+option qui réduise réellement le blocage, mais ce qu'elle achète est étroit :
+**elle ne change quelque chose que si GMB joue au moment précis où une
+transcription se termine.** Le prix est de rendre asynchrones deux
+transformations pures, avec des points d'attente dans des boucles chaudes et une
+cinquantaine d'appels de test à reprendre.
+
+Le blocage est borné, unique, en fin d'un travail que l'utilisateur a lancé
+lui-même, et la zone morte du §2 l'a déjà réduit de moitié. **Recommandation :
+laisser en l'état**, et n'y revenir que si quelqu'un signale un accroc réel.
 
 ## 7. Fonctionnel — vérifié dans un navigateur réel
 
