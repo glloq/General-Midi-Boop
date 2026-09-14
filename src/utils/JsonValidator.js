@@ -32,6 +32,7 @@ import playlistSchemas from '../api/commands/schemas/playlist.schemas.js';
 import instrumentSchemas from '../api/commands/schemas/instrument.schemas.js';
 import stringInstrumentSchemas from '../api/commands/schemas/string_instrument.schemas.js';
 import serialSchemas from '../api/commands/schemas/serial.schemas.js';
+import transcriptionSchemas from '../api/commands/schemas/transcription.schemas.js';
 import { isExemptFromSchema, NO_SCHEMA_ERROR } from '../api/commands/schemas/validation-policy.js';
 
 /**
@@ -59,7 +60,8 @@ for (const schemas of [
   playlistSchemas,
   instrumentSchemas,
   stringInstrumentSchemas,
-  serialSchemas
+  serialSchemas,
+  transcriptionSchemas
 ]) {
   for (const [cmd, schema] of Object.entries(schemas)) {
     COMPILED_SCHEMAS[cmd] = compileSchema(schema);

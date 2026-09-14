@@ -27,6 +27,7 @@ When `GMBOOP_API_TOKEN` is set, connect with:
 | GET | `/api/health` | No | Health check (status, version, uptime) |
 | GET | `/api/status` | Yes | Device/route/file counts, memory |
 | GET | `/api/metrics` | Yes | Prometheus-compatible metrics |
+| POST | `/api/transcription` | Yes | Queue an audio → MIDI transcription (raw audio bytes) |
 
 ---
 
@@ -302,6 +303,47 @@ know the gap on the UI side:
 | `tablature_convert_from_midi` | MIDI → tablature | `notes`, instrument config |
 | `tablature_convert_to_midi` | Tablature → MIDI | `tab_events`, instrument config |
 
+### Audio → MIDI transcription (7 commands)
+
+Optional feature — see [AUDIO_TRANSCRIPTION.md](AUDIO_TRANSCRIPTION.md). On a
+server with no engine installed every command still answers: capabilities
+report `disabled`/`degraded` and the others fail with a typed
+`ERR_TRANSCRIPTION_*` code rather than an internal error.
+
+| Command | Description | Parameters |
+|---------|-------------|------------|
+| `transcription_capabilities` | Is the feature usable? FFmpeg + engine status | `refresh?` |
+| `transcription_backends` | Engines with capabilities, status and licensing | `refresh?` |
+| `transcription_create` | Queue a job from an inline payload (≤ 8 MB) | `filename`, `audio` (base64), `backendId?`, `quality?`, `preset?`, `folder?`, `options?` |
+| `transcription_status` | One job, or every job when `jobId` is omitted | `jobId?` |
+| `transcription_cancel` | Stop a queued or running job | `jobId` |
+| `transcription_result` | Rich result: notes, confidence, expression curves | `jobId` |
+| `transcription_delete` | Forget a finished job | `jobId` |
+
+#### HTTP upload
+
+Audio does not fit in a 16 MB WebSocket frame, so real uploads go over HTTP —
+the same split the MIDI library uses.
+
+| Method | Path | Body / Query | Response |
+|--------|------|--------------|----------|
+| `POST` | `/api/transcription?filename=&folder=&backendId=&quality=&preset=&detectDrums=&detectInstruments=&detectTempo=&preserveDynamics=&preservePitchBends=` | Raw audio bytes (`Content-Type: application/octet-stream`), capped at `transcription.maxAudioFileBytes` | `202 {job}` — the work has not started; follow it through the events below |
+
+#### WS events (server → client)
+
+| Event | Payload | When |
+|-------|---------|------|
+| `transcription_created` | `{jobId, sourceName, backendId, status, queuePosition}` | A job was queued |
+| `transcription_progress` | `{jobId, stage, progress}` | Stage change, or a throttled progress update. `progress` is `null` when the engine reports none — show an indeterminate bar |
+| `transcription_complete` | `{jobId, fileId, summary, warnings}` | The MIDI is in the library |
+| `transcription_failed` | `{jobId, reason, message, retryable}` | `reason` is one of the `TRANSCRIPTION_REASONS` values |
+| `transcription_cancelled` | `{jobId}` | The user stopped it |
+| `transcription_backend_changed` | `{backendId, status, previousStatus, detail}` | An engine became available, broke, or was installed |
+
+Job stages, in order: `queued` → `preprocessing` → `transcribing` →
+`postprocessing` → `generating_midi` → `importing` → `complete`, or
+`failed` / `cancelled`.
+
 ### Sessions & Presets (10 commands)
 
 | Command | Description | Parameters |
@@ -362,4 +404,10 @@ Events are pushed to all connected clients:
 | `playback_stopped` | Playback stopped |
 | `playback_position` | Playback position update |
 | `file_uploaded` | File uploaded |
+| `transcription_created` | Audio → MIDI job queued |
+| `transcription_progress` | Audio → MIDI stage or progress update |
+| `transcription_complete` | Audio → MIDI job finished, file in the library |
+| `transcription_failed` | Audio → MIDI job failed (typed reason) |
+| `transcription_cancelled` | Audio → MIDI job cancelled |
+| `transcription_backend_changed` | A transcription engine's status changed |
 | `error` | Application error |

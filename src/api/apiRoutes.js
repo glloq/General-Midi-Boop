@@ -28,6 +28,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { LIMITS } from '../core/constants.js';
 import { readUpdateStatus } from '../system/UpdateStatus.js';
+import { resolveTranscriptionConfig } from '../transcription/TranscriptionConfig.js';
+import { TranscriptionError } from '../transcription/TranscriptionError.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -44,6 +46,30 @@ try {
   }).trim();
 } catch {
   /* ignore — keep "unknown" fallback */
+}
+
+/**
+ * Read the transcription feature toggles from the query string (§30). Only
+ * the documented flags are read, and only as booleans — the query string is
+ * client input and never reaches the pipeline as an arbitrary object.
+ *
+ * @param {Object} query - `req.query`.
+ * @returns {Object} Flags to pass to the service.
+ */
+function parseTranscriptionFlags(query) {
+  const flags = {};
+  for (const key of [
+    'preserveDynamics',
+    'preservePitchBends',
+    'detectTempo',
+    'detectDrums',
+    'detectInstruments'
+  ]) {
+    const value = query[key];
+    if (value === undefined) continue;
+    flags[key] = value === '1' || value === 'true';
+  }
+  return flags;
 }
 
 /**
@@ -168,6 +194,58 @@ export function createApiRouter(app) {
       res.status(code).json({ error: code === 500 ? 'Internal server error.' : err.message });
     }
   });
+
+  // ==========================================================================
+  // Audio -> MIDI transcription upload
+  // ==========================================================================
+
+  // Audio files are far larger than the 16 MB a WebSocket frame allows, so
+  // the transcription upload takes the same shape as the MIDI one: raw bytes
+  // on an HTTP POST. The body cap comes from the resolved transcription
+  // settings, so an operator who raises the limit does not also have to
+  // remember to raise a second one here.
+  const transcriptionSettings = resolveTranscriptionConfig(app.config);
+  router.post(
+    '/transcription',
+    expressRaw({ type: '*/*', limit: transcriptionSettings.maxAudioFileBytes + 64 * 1024 }),
+    async (req, res) => {
+      try {
+        if (!app.audioTranscriptionService) {
+          return res.status(503).json({ error: 'Audio transcription is not available.' });
+        }
+        if (!req.body || !Buffer.isBuffer(req.body) || req.body.length === 0) {
+          return res.status(400).json({ error: 'Empty body. Send raw audio bytes.' });
+        }
+
+        const filename = String(req.query.filename || '').trim() || 'audio.wav';
+        const folder = String(req.query.folder || '/');
+        if (!folder.startsWith('/')) {
+          return res.status(400).json({ error: 'folder must start with "/"' });
+        }
+
+        const job = await app.audioTranscriptionService.createJob({
+          filename,
+          buffer: req.body,
+          folder,
+          backendId: req.query.backendId ? String(req.query.backendId) : null,
+          quality: req.query.quality ? String(req.query.quality) : undefined,
+          preset: req.query.preset ? String(req.query.preset) : undefined,
+          options: parseTranscriptionFlags(req.query)
+        });
+
+        // 202: the work has not happened yet — the client follows the job
+        // over WebSocket from here (§17).
+        res.status(202).json({ job });
+      } catch (err) {
+        if (err instanceof TranscriptionError) {
+          app.logger.warn(`POST /api/transcription refused: ${err.reason} — ${err.message}`);
+          return res.status(err.statusCode).json(err.toJSON());
+        }
+        app.logger.error(`POST /api/transcription failed: ${err.message}`);
+        res.status(500).json({ error: 'Internal server error.' });
+      }
+    }
+  );
 
   // GET /api/files/:id/text-events
   // Returns all text meta events for a file (lyrics, markers, copyright, etc.)
