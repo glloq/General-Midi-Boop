@@ -77,6 +77,12 @@ FROM ${NODE_IMAGE}
 #   3. reinstate `libasound2` in this stage;
 #   4. give the container `devices: ["/dev/snd:/dev/snd"]` and
 #      `group_add: ["audio"]`.
+#
+# Same reasoning for `ffmpeg`, which the audio → MIDI feature decodes with:
+# it is ~70 MB of layer for a feature that also needs a transcription engine
+# installed at runtime, so it is left out of the default image. Add
+# `ffmpeg` to this stage to enable audio → MIDI in a container;
+# `scripts/Install.sh` installs it for a normal Raspberry Pi deployment.
 
 WORKDIR /app
 

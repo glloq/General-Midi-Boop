@@ -68,8 +68,9 @@ If you prefer manual installation:
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
-# Install system dependencies
-sudo apt-get install -y libasound2-dev bluetooth bluez libbluetooth-dev
+# Install system dependencies (ffmpeg powers the audio → MIDI feature and
+# brings ffprobe with it; scripts/Install.sh does this for you)
+sudo apt-get install -y libasound2-dev bluetooth bluez libbluetooth-dev ffmpeg
 
 # Install npm dependencies
 npm install

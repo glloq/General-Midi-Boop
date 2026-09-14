@@ -293,16 +293,30 @@ filesystem paths stay in the logs, they do not reach the browser.
 
 ## Installing an engine
 
-### Prerequisite: FFmpeg
+### Prerequisite: FFmpeg — already there
 
-Everything goes through FFmpeg, whichever engine you use:
+Everything goes through FFmpeg, whichever engine you use, and it brings
+`ffprobe` with it. **`scripts/Install.sh` installs it with the rest of the
+system packages**, so a normal deployment has it before you ever open the
+Settings panel; installing an engine is then the only step left.
+
+If you are on an installation that predates this, or you set GMB up by hand,
+re-running the installer adds it:
 
 ```bash
-sudo apt install ffmpeg          # Debian / Raspberry Pi OS
+./scripts/Install.sh              # idempotent; installs what is missing
+sudo apt install ffmpeg           # or just this, on Debian / Raspberry Pi OS
 ```
 
 Without it the feature reports `degraded` and every conversion fails with
 `FFMPEG_MISSING` — nothing else breaks.
+
+> **Why not a button?** Installing a system package needs root, which the
+> server does not have and should not be given for a web request. Bundling a
+> static build instead would be ~80 MB paid by every user, ours to keep
+> patched, and the packages that ship one (`imageio-ffmpeg`, `pyffmpeg`) carry
+> no real `ffprobe`, which GMB needs just as much. Putting it in the installer
+> costs nothing and means it is simply present.
 
 ### Basic Pitch (solo / lightweight polyphonic)
 
@@ -428,7 +442,7 @@ the environment" rather than producing silently wrong results.
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | Nothing happens when I drop an audio file | The format is not one GMB offers | See the accepted formats above; the file browser lists them too |
-| "FFmpeg is not installed" | FFmpeg absent from `PATH` | `sudo apt install ffmpeg` |
+| "FFmpeg is not installed" | An install that predates it, or a manual setup | Re-run `./scripts/Install.sh` |
 | Engine shows *Can be installed* | No virtual environment yet | Follow the install steps above |
 | Engine shows *Installed but unusable* | The venv exists but does not import | Re-run the `pip install`; the Settings detail line carries the Python error |
 | "This engine needs Python 3.9 – 3.11" | The interpreter has no TensorFlow wheel | Install a supported Python and make it `python3` on `PATH` |
