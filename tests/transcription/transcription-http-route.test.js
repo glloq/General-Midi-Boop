@@ -37,7 +37,9 @@ beforeAll(async () => {
     logger: noopLogger,
     config: {
       server: { port: 0, host: '127.0.0.1' },
-      get: (key, fallback) => (key.startsWith('transcription.') ? undefined : fallback)
+      // A deliberately small audio cap so the oversize test stays fast; the
+      // route reads the limit from the resolved transcription settings.
+      get: (key, fallback) => (key === 'transcription.maxAudioFileBytes' ? 1024 * 1024 : fallback)
     },
     getCapabilityStatus: () => ({ overall: 'ok', capabilities: {} }),
     deviceManager: { getDeviceList: () => [] },
@@ -136,6 +138,19 @@ describe('POST /api/transcription', () => {
     } finally {
       service.nextError = null;
     }
+  });
+
+  test('an oversized body is a 413, not a masked internal error', async () => {
+    // body-parser refuses it before the handler runs, so the route has to
+    // recognise ITS error — not only the pipeline's own size check.
+    const huge = Buffer.alloc(2 * 1024 * 1024 + 1024);
+    const response = await fetch(`${baseUrl}/api/transcription?filename=big.wav`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: huge
+    });
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ reason: 'FILE_TOO_LARGE' });
   });
 
   test('an unexpected failure never leaks its message', async () => {

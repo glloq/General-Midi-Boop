@@ -128,14 +128,12 @@ async function transcriptionBackends(app, data) {
 async function transcriptionCreate(app, data) {
   const service = requireService(app);
 
-  let buffer;
-  try {
-    buffer = Buffer.from(String(data.audio), 'base64');
-  } catch {
-    throw new ValidationError('audio must be base64-encoded bytes', 'audio');
-  }
+  // `Buffer.from(x, 'base64')` never throws — it silently drops anything that
+  // is not base64 — so the emptiness of the RESULT is what tells us the
+  // payload was unusable, not an exception that can never happen.
+  const buffer = Buffer.from(String(data.audio), 'base64');
   if (buffer.length === 0) {
-    throw new ValidationError('audio is empty', 'audio');
+    throw new ValidationError('audio is empty or not valid base64', 'audio');
   }
   if (buffer.length > MAX_INLINE_AUDIO_BYTES) {
     throw new TranscriptionError(
