@@ -200,10 +200,10 @@ Deployment options: direct Node.js (`npm start`), **PM2** for production with au
 - [Drums Engine GMB](https://github.com/glloq/Drums-Engine-GMB)
 - [Servo Plucked Strings GMB](https://github.com/glloq/Servo-Plucked-Strings-GMB)
 - [Stepper Plucked Strings GMB](https://github.com/glloq/Stepper-Plucked-Strings-GMB)
+- [PlayMode-GMB](https://github.com/glloq/PlayMode-GMB)
 
 ### soon to come
 
-- [PlayMode-GMB](https://github.com/glloq/PlayMode-GMB)
 - [Accordion-servo-midi](https://github.com/glloq/Accordion-servo-midi)
 - [harmonica_Midi](https://github.com/glloq/harmonica_Midi)
 - [trumpet](https://github.com/glloq/Orchestrion_trumpet)
