@@ -209,6 +209,11 @@ Deployment options: direct Node.js (`npm start`), **PM2** for production with au
 - [trumpet](https://github.com/glloq/Orchestrion_trumpet)
 - [servo-Melodica-GMB](https://github.com/glloq/servo-Melodica-GMB)
 - [slide_Whistle-GMB](https://github.com/glloq/slide_Whistle-GMB)
+- [Servo-bowed-strings-GMB](https://github.com/glloq/Servo-bowed-strings-GMB)
+- [stepper-bowed-string-GMB](https://github.com/glloq/stepper-bowed-string-GMB)
+- []()
+
+
 
 ## compatible instruments/code for Arduino (kind of deprecated/not really fully done)
 
