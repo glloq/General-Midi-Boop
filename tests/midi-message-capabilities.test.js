@@ -191,11 +191,9 @@ describe('InstrumentRepository MIDI message persistence', () => {
   });
 
   test('unknown pitch bend support does not overwrite the legacy UI flag', () => {
-    db
-      .prepare(
-        'UPDATE instruments_latency SET pitch_bend_enabled = 1 WHERE device_id = ? AND channel = ?'
-      )
-      .run('dev', 2);
+    db.prepare(
+      'UPDATE instruments_latency SET pitch_bend_enabled = 1 WHERE device_id = ? AND channel = ?'
+    ).run('dev', 2);
     repo.saveMidiMessageSupport('dev', 2, { note_on: true, note_off: true });
 
     expect(
