@@ -48,6 +48,73 @@ export default class InstrumentRepository {
     return this.database.updateInstrumentCapabilities(deviceId, channel, fields);
   }
 
+  /**
+   * Persist the semantic MIDI messages advertised by a GMB v2 descriptor.
+   *
+   * `support` is a tri-state object: true = implemented, false = explicitly
+   * unsupported, absent = unknown. The complete object is stored as JSON so
+   * future protocol keys do not require another schema migration. When the
+   * descriptor explicitly declares pitch-bend support we also mirror that value
+   * into the legacy `pitch_bend_enabled` column used by the virtual keyboard.
+   *
+   * The base capability row is created by `updateCapabilities()` immediately
+   * before this method in DescriptorService; a missing row here is therefore a
+   * real integration error rather than something to silently upsert.
+   *
+   * @param {string} deviceId
+   * @param {number} channel
+   * @param {Object|null} support
+   * @returns {number} number of rows changed
+   */
+  saveMidiMessageSupport(deviceId, channel, support) {
+    if (support !== null && (typeof support !== 'object' || Array.isArray(support))) {
+      throw new TypeError('MIDI message support must be an object or null');
+    }
+    const db = this.database?.db;
+    if (!db) throw new Error('Database connection unavailable');
+
+    const json = support === null ? null : JSON.stringify(support);
+    const pitchBend =
+      support && typeof support.pitch_bend === 'boolean' ? (support.pitch_bend ? 1 : 0) : null;
+    const now = new Date().toISOString();
+
+    const result = db.prepare(`
+      UPDATE instruments_latency
+      SET midi_message_support = ?,
+          pitch_bend_enabled = CASE WHEN ? IS NULL THEN pitch_bend_enabled ELSE ? END,
+          capabilities_updated_at = ?
+      WHERE device_id = ? AND channel = ?
+    `).run(json, pitchBend, pitchBend, now, deviceId, channel);
+
+    if (result.changes === 0) {
+      throw new Error(`Cannot persist MIDI message support: no instrument row for ${deviceId}:${channel}`);
+    }
+    return result.changes;
+  }
+
+  /**
+   * Read the semantic MIDI-message declaration for one instrument channel.
+   * Returns null for legacy/unknown data or malformed legacy JSON.
+   *
+   * @param {string} deviceId
+   * @param {number} channel
+   * @returns {Object|null}
+   */
+  getMidiMessageSupport(deviceId, channel) {
+    const db = this.database?.db;
+    if (!db) return null;
+    const row = db
+      .prepare('SELECT midi_message_support FROM instruments_latency WHERE device_id = ? AND channel = ?')
+      .get(deviceId, channel);
+    if (!row?.midi_message_support) return null;
+    try {
+      const value = JSON.parse(row.midi_message_support);
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
   updateSettings(deviceId, channel, fields) {
     return this.database.updateInstrumentSettings(deviceId, channel, fields);
   }
