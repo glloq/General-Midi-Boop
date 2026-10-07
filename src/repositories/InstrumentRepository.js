@@ -37,23 +37,11 @@ export default class InstrumentRepository {
   }
 
   getCapabilities(deviceId, channel) {
-    const caps = this.database.getInstrumentCapabilities(deviceId, channel);
-    if (!caps) return null;
-    return {
-      ...caps,
-      midi_message_support: this.getMidiMessageSupport(deviceId, channel)
-    };
+    return this.database.getInstrumentCapabilities(deviceId, channel);
   }
 
   getAllCapabilities() {
-    const rows = this.database.getAllInstrumentCapabilities();
-    return rows.map((row) => ({
-      ...row,
-      midi_message_support:
-        row?.device_id != null && row?.channel != null
-          ? this.getMidiMessageSupport(row.device_id, row.channel)
-          : null
-    }));
+    return this.database.getAllInstrumentCapabilities();
   }
 
   updateCapabilities(deviceId, channel, fields) {
@@ -90,13 +78,17 @@ export default class InstrumentRepository {
       support && typeof support.pitch_bend === 'boolean' ? (support.pitch_bend ? 1 : 0) : null;
     const now = new Date().toISOString();
 
-    const result = db.prepare(`
-      UPDATE instruments_latency
-      SET midi_message_support = ?,
-          pitch_bend_enabled = CASE WHEN ? IS NULL THEN pitch_bend_enabled ELSE ? END,
-          capabilities_updated_at = ?
-      WHERE device_id = ? AND channel = ?
-    `).run(json, pitchBend, pitchBend, now, deviceId, channel);
+    const result = db
+      .prepare(
+        `
+        UPDATE instruments_latency
+        SET midi_message_support = ?,
+            pitch_bend_enabled = CASE WHEN ? IS NULL THEN pitch_bend_enabled ELSE ? END,
+            capabilities_updated_at = ?
+        WHERE device_id = ? AND channel = ?
+      `
+      )
+      .run(json, pitchBend, pitchBend, now, deviceId, channel);
 
     if (result.changes === 0) {
       throw new Error(
