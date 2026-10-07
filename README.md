@@ -5,6 +5,9 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B%2B%2F4%2F5-red)](https://www.raspberrypi.org/)
+[![GMB HUB](https://img.shields.io/badge/GMB%20HUB-Explore%20the%20ecosystem-00bcd4)](https://glloq.github.io/GMB-HUB/)
+
+> **Explore the complete GMB ecosystem:** compatible instruments, controllers, hardware and project repositories are collected in **[GMB HUB](https://glloq.github.io/GMB-HUB/)**.
 
 Général Midi Boop is a complete MIDI orchestration system designed for **beginners building DIY MIDI instruments**. Plug in your home-made or off-the-shelf instruments, point a standard MIDI file at them, and the system automatically adapts the music to what each instrument can actually play — then conducts the whole ensemble in sync.
 
@@ -182,6 +185,7 @@ Deployment options: direct Node.js (`npm start`), **PM2** for production with au
 
 ## Documentation
 
+- **[GMB HUB](https://glloq.github.io/GMB-HUB/)** — complete GMB ecosystem, compatible instruments, controllers and project repositories
 - **[Project Wiki](https://github.com/glloq/General-Midi-Boop/wiki)** — guided tour, usage, troubleshooting (sources tracked in [`wiki/`](./wiki))
 - [Installation Guide](./docs/INSTALLATION.md)
 - [Architecture](./docs/ARCHITECTURE.md)
