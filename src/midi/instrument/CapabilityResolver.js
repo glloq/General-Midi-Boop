@@ -17,6 +17,8 @@
  * @see PlaybackScheduler — primary consumer.
  */
 
+import { allowsMidiMessage } from './MidiMessageCapabilities.js';
+
 const CACHE_TTL_MS = 30_000;
 
 /**
@@ -49,6 +51,8 @@ export class CapabilityResolver {
     this._stringCCCache = new Map();
     /** @type {Map<string, {minNoteInterval:number|null, minNoteDuration:number|null, polyphony:number|null}>} */
     this._timingCache = new Map();
+    /** @type {Map<string, Object|null>} */
+    this._midiMessageCache = new Map();
 
     this._cacheTimer = setInterval(() => this.invalidate(), CACHE_TTL_MS).unref();
 
@@ -88,12 +92,61 @@ export class CapabilityResolver {
   }
 
   /**
+   * Return the normalized semantic MIDI-message declaration persisted from a
+   * GMB v2 descriptor. `null` means legacy/unknown and is intentionally not the
+   * same as an object full of false values.
+   *
+   * Kept in its own cache because this data is consulted on the realtime send
+   * path and must never add a synchronous SQLite lookup per MIDI event.
+   *
+   * @param {string} deviceId
+   * @param {number} channel
+   * @returns {Object|null}
+   */
+  getMidiMessageSupport(deviceId, channel) {
+    const key = `${deviceId}:${channel}`;
+    if (this._midiMessageCache.has(key)) return this._midiMessageCache.get(key);
+
+    let support = null;
+    try {
+      const row = this._db?.db
+        ?.prepare(
+          'SELECT midi_message_support FROM instruments_latency WHERE device_id = ? AND channel = ?'
+        )
+        .get(deviceId, channel);
+      if (row?.midi_message_support) {
+        const parsed = JSON.parse(row.midi_message_support);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) support = parsed;
+      }
+    } catch {
+      // Migration absent / malformed legacy data => unknown, therefore permissive.
+      support = null;
+    }
+
+    this._midiMessageCache.set(key, support);
+    return support;
+  }
+
+  /**
+   * Backward-compatible runtime query. Only an explicitly declared `false`
+   * rejects a message family; absent/legacy capability data stays allowed.
+   *
+   * @param {string} deviceId
+   * @param {number} channel
+   * @param {string} messageType normalized descriptor key
+   * @returns {boolean}
+   */
+  isMidiMessageAllowed(deviceId, channel, messageType) {
+    return allowsMidiMessage(this.getMidiMessageSupport(deviceId, channel), messageType);
+  }
+
+  /**
    * Returns timing and polyphony constraints for a device+channel.
    * All fields default to `null` when no capability record exists.
    *
    * @param {string} deviceId
    * @param {number} channel
-   * @returns {{ minNoteInterval: number|null, minNoteDuration: number|null, polyphony: number|null, noteRangeMin: number|null, noteRangeMax: number|null }}
+   * @returns {{ minNoteInterval: number|null, minNoteDuration: number|null, polyphony:number|null, noteRangeMin:number|null, noteRangeMax:number|null }}
    */
   getTimingConstraints(deviceId, channel) {
     const key = `${deviceId}:${channel}`;
@@ -109,7 +162,8 @@ export class CapabilityResolver {
       octaveMode: null,
       scaleRoot: 0,
       supportedCcs: null,
-      handCcs: null
+      handCcs: null,
+      midiMessageSupport: this.getMidiMessageSupport(deviceId, channel)
     };
     try {
       const capDB = this._db?.instrumentCapabilitiesDB;
@@ -154,7 +208,8 @@ export class CapabilityResolver {
             // the declared supported_ccs list omits them (audit fix: a
             // descriptor-declared supported_ccs like [1,7,11] otherwise silently
             // dropped CC22/23/24 and the hand never moved).
-            handCcs: _extractHandCcs(instrument.hands_config)
+            handCcs: _extractHandCcs(instrument.hands_config),
+            midiMessageSupport: this.getMidiMessageSupport(deviceId, channel)
           };
         }
       }
@@ -214,6 +269,7 @@ export class CapabilityResolver {
   invalidate() {
     this._stringCCCache.clear();
     this._timingCache.clear();
+    this._midiMessageCache.clear();
   }
 
   /**
