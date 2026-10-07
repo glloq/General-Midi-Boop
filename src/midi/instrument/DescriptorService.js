@@ -23,6 +23,10 @@ import {
   descriptorToStringConfig,
   descriptorLookaheadMs
 } from './DescriptorProtocol.js';
+import {
+  deriveMidiMessageSupport,
+  validateMidiMessageCapabilities
+} from './MidiMessageCapabilities.js';
 
 export class DescriptorService {
   /**
@@ -63,6 +67,23 @@ export class DescriptorService {
       return { applied: false, errors, instruments: [] };
     }
 
+    // `messages` is a backward-compatible v2 extension. DescriptorProtocol
+    // deliberately ignores unknown fields, so validate its known semantic keys
+    // here without making old descriptors fail. Unknown future message keys are
+    // allowed; known keys must be explicit booleans so false != unknown.
+    const midiErrors = [];
+    descriptor.instruments.forEach((inst, index) => {
+      for (const error of validateMidiMessageCapabilities(inst)) {
+        midiErrors.push(`instruments[${index}].${error}`);
+      }
+    });
+    if (midiErrors.length > 0) {
+      this._logger.warn(
+        `Descriptor for ${deviceId} rejected (invalid MIDI capabilities): ${midiErrors.join('; ')}`
+      );
+      return { applied: false, errors: midiErrors, instruments: [] };
+    }
+
     const prevByChannel = new Map();
     if (previousDescriptor && Array.isArray(previousDescriptor.instruments)) {
       for (const p of previousDescriptor.instruments) {
@@ -81,6 +102,7 @@ export class DescriptorService {
       }
       const fields = descriptorToCapabilities(inst, this._source);
       const settings = descriptorToSettings(inst);
+      const midiMessageSupport = deriveMidiMessageSupport(inst);
       const overridden = overriddenFieldsByChannel[inst.channel] || [];
       const prevInst = prevByChannel.get(inst.channel) ?? null;
       // §6 arbitration compares the flat persisted-field views (stored override
@@ -97,6 +119,17 @@ export class DescriptorService {
         // updateSettings when the descriptor declares any.
         if (Object.keys(settings).length > 0 && typeof this._repo.updateSettings === 'function') {
           this._repo.updateSettings(deviceId, inst.channel, settings);
+        }
+        // Message semantics are kept outside the legacy scalar capability
+        // allow-list. This lets v2 describe program-change, aftertouch,
+        // realtime messages and future message families without schema churn.
+        // The repository also mirrors explicit pitch-bend support to the old
+        // pitch_bend_enabled UI flag.
+        if (
+          midiMessageSupport &&
+          typeof this._repo.saveMidiMessageSupport === 'function'
+        ) {
+          this._repo.saveMidiMessageSupport(deviceId, inst.channel, midiMessageSupport);
         }
         appliedCount += 1;
       } catch (e) {
@@ -117,6 +150,7 @@ export class DescriptorService {
         applied: true,
         purgedOverrides: purge,
         keptOverrides: keep,
+        ...(midiMessageSupport ? { midiMessageSupport } : {}),
         ...(stringConfigApplied !== undefined ? { stringConfigApplied } : {})
       });
     }
