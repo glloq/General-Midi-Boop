@@ -27,6 +27,7 @@ import {
   deriveMidiMessageSupport,
   validateMidiMessageCapabilities
 } from './MidiMessageCapabilities.js';
+import MidiMessageCapabilityGuard from './MidiMessageCapabilityGuard.js';
 
 export class DescriptorService {
   /**
@@ -36,7 +37,13 @@ export class DescriptorService {
    * @param {Object} [deps.eventBus]
    * @param {Object} [deps.logger]
    */
-  constructor({ instrumentRepository, stringInstrumentRepository, eventBus, logger } = {}) {
+  constructor({
+    instrumentRepository,
+    stringInstrumentRepository,
+    deviceManager,
+    eventBus,
+    logger
+  } = {}) {
     this._repo = instrumentRepository;
     this._stringRepo = stringInstrumentRepository ?? null;
     this._eventBus = eventBus ?? null;
@@ -44,6 +51,17 @@ export class DescriptorService {
     // Spec value is 'descriptor'; kept 'auto' until the instruments_latency
     // capabilities_source CHECK is widened (docs/SYSEX_IDENTITY.md §12).
     this._source = 'auto';
+
+    // Install one central outbound gate instead of duplicating message support
+    // checks in file playback, live routing, direct API sends and calibration.
+    // The guard is deliberately permissive for unknown/legacy instruments and
+    // only suppresses an explicitly unsupported semantic message.
+    this._midiMessageGuard = new MidiMessageCapabilityGuard({
+      instrumentRepository: this._repo,
+      eventBus: this._eventBus,
+      logger: this._logger
+    });
+    this._midiMessageGuard.install(deviceManager);
   }
 
   /**
@@ -125,10 +143,7 @@ export class DescriptorService {
         // realtime messages and future message families without schema churn.
         // The repository also mirrors explicit pitch-bend support to the old
         // pitch_bend_enabled UI flag.
-        if (
-          midiMessageSupport &&
-          typeof this._repo.saveMidiMessageSupport === 'function'
-        ) {
+        if (midiMessageSupport && typeof this._repo.saveMidiMessageSupport === 'function') {
           this._repo.saveMidiMessageSupport(deviceId, inst.channel, midiMessageSupport);
         }
         appliedCount += 1;
@@ -192,6 +207,10 @@ export class DescriptorService {
       );
       return false;
     }
+  }
+
+  destroy() {
+    this._midiMessageGuard?.destroy?.();
   }
 }
 
