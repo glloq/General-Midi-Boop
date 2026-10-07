@@ -110,10 +110,7 @@ export function deriveMidiMessageSupport(inst) {
   ) {
     out.pitch_bend = pitchBend.supported;
   }
-  if (
-    out.channel_aftertouch === undefined &&
-    typeof expression.channel_aftertouch === 'boolean'
-  ) {
+  if (out.channel_aftertouch === undefined && typeof expression.channel_aftertouch === 'boolean') {
     out.channel_aftertouch = expression.channel_aftertouch;
   }
   if (out.poly_aftertouch === undefined && typeof expression.poly_aftertouch === 'boolean') {
