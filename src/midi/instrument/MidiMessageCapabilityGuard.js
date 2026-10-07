@@ -146,7 +146,7 @@ export class MidiMessageCapabilityGuard {
     // Releases are safety traffic. Never let a stale/incorrect descriptor turn
     // a normal note lifecycle into a stuck note.
     if (canonicalType === DEVICE_MSG_TYPES.NOTE_OFF) return true;
-    if (canonicalType === DEVICE_MSG_TYPES.NOTE_ON && (data?.velocity ?? 0) === 0) return true;
+    if (canonicalType === DEVICE_MSG_TYPES.NOTE_ON && data?.velocity === 0) return true;
 
     // Channel Mode controllers are the panic/safety family. Existing GMB CC
     // enforcement also bypasses them; keep that invariant at the final gate.
