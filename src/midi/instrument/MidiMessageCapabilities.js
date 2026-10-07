@@ -88,8 +88,12 @@ export function deriveMidiMessageSupport(inst) {
 
   // Legacy-v2 derivation. Presence of a notes declaration means the instrument
   // is defining playable notes, therefore Note On/Off are safe to infer.
-  if (out.note_on === undefined && inst.notes && typeof inst.notes === 'object') out.note_on = true;
-  if (out.note_off === undefined && inst.notes && typeof inst.notes === 'object') out.note_off = true;
+  if (out.note_on === undefined && inst.notes && typeof inst.notes === 'object') {
+    out.note_on = true;
+  }
+  if (out.note_off === undefined && inst.notes && typeof inst.notes === 'object') {
+    out.note_off = true;
+  }
 
   // An explicit CC list is a declaration of semantic CC handling. An empty list
   // therefore means no musical CC support; absent list remains unknown.
@@ -106,7 +110,10 @@ export function deriveMidiMessageSupport(inst) {
   ) {
     out.pitch_bend = pitchBend.supported;
   }
-  if (out.channel_aftertouch === undefined && typeof expression.channel_aftertouch === 'boolean') {
+  if (
+    out.channel_aftertouch === undefined &&
+    typeof expression.channel_aftertouch === 'boolean'
+  ) {
     out.channel_aftertouch = expression.channel_aftertouch;
   }
   if (out.poly_aftertouch === undefined && typeof expression.poly_aftertouch === 'boolean') {
