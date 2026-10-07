@@ -64,11 +64,15 @@ describe('MidiMessageCapabilities', () => {
   });
 
   test('validates known message keys but tolerates future unknown keys', () => {
-    expect(validateMidiMessageCapabilities({ messages: { pitch_bend: true, future_midi2: 'x' } })).toEqual([]);
+    expect(
+      validateMidiMessageCapabilities({ messages: { pitch_bend: true, future_midi2: 'x' } })
+    ).toEqual([]);
     expect(validateMidiMessageCapabilities({ messages: { pitch_bend: 1 } })).toEqual([
       'messages.pitch_bend must be a boolean'
     ]);
-    expect(validateMidiMessageCapabilities({ messages: [] })).toEqual(['messages must be an object']);
+    expect(validateMidiMessageCapabilities({ messages: [] })).toEqual([
+      'messages must be an object'
+    ]);
   });
 
   test('runtime policy suppresses only explicit false', () => {
@@ -178,18 +182,27 @@ describe('InstrumentRepository MIDI message persistence', () => {
       channel_aftertouch: false
     });
     expect(
-      db.prepare('SELECT pitch_bend_enabled FROM instruments_latency WHERE device_id = ? AND channel = ?')
+      db
+        .prepare(
+          'SELECT pitch_bend_enabled FROM instruments_latency WHERE device_id = ? AND channel = ?'
+        )
         .get('dev', 2).pitch_bend_enabled
     ).toBe(1);
   });
 
   test('unknown pitch bend support does not overwrite the legacy UI flag', () => {
-    db.prepare('UPDATE instruments_latency SET pitch_bend_enabled = 1 WHERE device_id = ? AND channel = ?')
+    db
+      .prepare(
+        'UPDATE instruments_latency SET pitch_bend_enabled = 1 WHERE device_id = ? AND channel = ?'
+      )
       .run('dev', 2);
     repo.saveMidiMessageSupport('dev', 2, { note_on: true, note_off: true });
 
     expect(
-      db.prepare('SELECT pitch_bend_enabled FROM instruments_latency WHERE device_id = ? AND channel = ?')
+      db
+        .prepare(
+          'SELECT pitch_bend_enabled FROM instruments_latency WHERE device_id = ? AND channel = ?'
+        )
         .get('dev', 2).pitch_bend_enabled
     ).toBe(1);
   });
