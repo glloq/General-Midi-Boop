@@ -37,11 +37,23 @@ export default class InstrumentRepository {
   }
 
   getCapabilities(deviceId, channel) {
-    return this.database.getInstrumentCapabilities(deviceId, channel);
+    const caps = this.database.getInstrumentCapabilities(deviceId, channel);
+    if (!caps) return null;
+    return {
+      ...caps,
+      midi_message_support: this.getMidiMessageSupport(deviceId, channel)
+    };
   }
 
   getAllCapabilities() {
-    return this.database.getAllInstrumentCapabilities();
+    const rows = this.database.getAllInstrumentCapabilities();
+    return rows.map((row) => ({
+      ...row,
+      midi_message_support:
+        row?.device_id != null && row?.channel != null
+          ? this.getMidiMessageSupport(row.device_id, row.channel)
+          : null
+    }));
   }
 
   updateCapabilities(deviceId, channel, fields) {
@@ -87,7 +99,9 @@ export default class InstrumentRepository {
     `).run(json, pitchBend, pitchBend, now, deviceId, channel);
 
     if (result.changes === 0) {
-      throw new Error(`Cannot persist MIDI message support: no instrument row for ${deviceId}:${channel}`);
+      throw new Error(
+        `Cannot persist MIDI message support: no instrument row for ${deviceId}:${channel}`
+      );
     }
     return result.changes;
   }
@@ -104,7 +118,9 @@ export default class InstrumentRepository {
     const db = this.database?.db;
     if (!db) return null;
     const row = db
-      .prepare('SELECT midi_message_support FROM instruments_latency WHERE device_id = ? AND channel = ?')
+      .prepare(
+        'SELECT midi_message_support FROM instruments_latency WHERE device_id = ? AND channel = ?'
+      )
       .get(deviceId, channel);
     if (!row?.midi_message_support) return null;
     try {
@@ -113,6 +129,42 @@ export default class InstrumentRepository {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Read every channel's declaration for one physical/logical device.
+   * Rows with no declaration are retained as `null`: the outbound guard needs
+   * to distinguish "all channels explicitly false" from "at least one channel
+   * is still unknown" for device-wide realtime/system messages.
+   *
+   * @param {string} deviceId
+   * @returns {Object<number,Object|null>|null}
+   */
+  getMidiMessageSupportsForDevice(deviceId) {
+    const db = this.database?.db;
+    if (!db) return null;
+    const rows = db
+      .prepare(
+        'SELECT channel, midi_message_support FROM instruments_latency WHERE device_id = ? ORDER BY channel'
+      )
+      .all(deviceId);
+    if (!rows.length) return null;
+
+    const out = {};
+    for (const row of rows) {
+      if (!row.midi_message_support) {
+        out[row.channel] = null;
+        continue;
+      }
+      try {
+        const value = JSON.parse(row.midi_message_support);
+        out[row.channel] =
+          value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+      } catch {
+        out[row.channel] = null;
+      }
+    }
+    return out;
   }
 
   updateSettings(deviceId, channel, fields) {
